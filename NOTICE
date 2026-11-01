@@ -1,0 +1,12 @@
+Overshoot
+Copyright 2026 Toni Giorgino
+
+This product includes software developed as part of the Overshoot project
+(https://github.com/tonigi/overshoot-game).
+
+The ionic models are independent JavaScript implementations of published
+equations:
+  - A. L. Hodgkin and A. F. Huxley (1952), J. Physiol. 117:500-544
+  - M. Pospischil et al. (2008), Biol. Cybern. 99:427-441
+  - K. H. W. J. ten Tusscher, D. Noble, P. J. Noble and A. V. Panfilov (2004),
+    Am. J. Physiol. Heart Circ. Physiol. 286:H1573-H1589

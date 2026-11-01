@@ -49,8 +49,17 @@ Open `dist/overshoot.html` in any modern browser.
 
 Every push to `main` runs the tests, builds the page and deploys it to GitHub Pages (`.github/workflows/pages.yml`). One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
 
+## Documentation
+
+- [docs/DESIGN.md](docs/DESIGN.md): design principles
+- [docs/HANDOFF.md](docs/HANDOFF.md): current state, decisions and their reasons, open items
+
 ## Modelling notes
 
 - Cardiac levels hold intracellular Na⁺ and K⁺ at their 1 Hz steady state and score the second paced beat, which keeps each simulation at ~35 ms so the sliders stay interactive. The lens run lets Na⁺/K⁺ evolve over that beat.
 - Timothy syndrome is approximated as 1.8× L-type conductance; the real G406R mutation mainly removes voltage-dependent inactivation.
 - Targets are model simulations with added noise, not experimental recordings.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
