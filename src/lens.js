@@ -194,7 +194,7 @@ const LENS_UI = (() => {
 
   function drawTrace(i) {
     const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
-    const v = L.view, ml = 40, mr = 8, mt = 6, mb = 6;
+    const v = (L.lens.view || L.view), ml = 40, mr = 8, mt = 6, mb = 6;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
     ctx.clearRect(0, 0, w, h);
@@ -212,7 +212,7 @@ const LENS_UI = (() => {
 
   function drawConc(i) {
     const cv = $('lc'), sh = 54; const { ctx, w, h } = sizeCanvas(cv, conc.length * sh);
-    const v = L.view, ml = 150, mr = 8;
+    const v = (L.lens.view || L.view), ml = 150, mr = 8;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     ctx.clearRect(0, 0, w, h);
     conc.forEach((c, k) => {
@@ -237,7 +237,7 @@ const LENS_UI = (() => {
 
   // ---- controls ----
   function scrub(e) {
-    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = L.view;
+    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = (L.lens.view || L.view);
     const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
     const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
     tm = Math.max(0, Math.min(R.t[R.t.length - 1], t));

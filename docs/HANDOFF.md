@@ -1,6 +1,6 @@
 # Handoff
 
-State of the project as of 2026-11-01, written for whoever picks it up next: you, a collaborator, or a new Claude session. Read [DESIGN.md](DESIGN.md) first for the principles. This document covers what exists, why it is the way it is, and what is still open.
+State of the project as of 2026-11-01 (v0.4: T-wave level added), written for whoever picks it up next: you, a collaborator, or a new Claude session. Read [DESIGN.md](DESIGN.md) first for the principles. This document covers what exists, why it is the way it is, and what is still open.
 
 ## Where things are
 
@@ -16,8 +16,8 @@ The artifact is published by hand from the same `src/` files. It is the inlined 
 ## How to work on it
 
 ```bash
-npm test        # 24 regression checks, ~10 s
-npm run build   # writes dist/overshoot.html (single file, ~90 KiB)
+npm test        # 31 regression checks, ~20 s
+npm run build   # writes dist/overshoot.html (single file, ~110 KiB)
 ```
 
 There are no dependencies. Node 20 or later is enough. Open `dist/overshoot.html` in a browser to play.
@@ -25,8 +25,10 @@ There are no dependencies. Node 20 or later is enough. Open `dist/overshoot.html
 ## Architecture
 
 ```
-src/models.js  MODELS.hh(p) · MODELS.cortical(p, protocol) · MODELS.tnnp(p, opts)
-               → { t, V, stim, I:{current→array}, O:{current→open prob}, C:{conc→array}, Vmax, dVdtMax, state }
+src/models.js  MODELS_FACTORY() → { hh, cortical, tnnp, tnnpCable, tnnpWall }
+               cell runs → { t, V, stim, I:{current→array}, O:{current→open prob}, C:{conc→array}, Vmax, dVdtMax, state }
+               tnnpStep(cell, P, dt, Ist) is the single TNNP update shared by tnnp() and tnnpCable()
+               tnnpWall(p) → { t, V=ecg, aps:[endo,mid,epi], map (depth×time V), act, rep, probe }
 src/core.js    CORE.LEVELS[]: tools (sliders), target/start params, sim(), feats(), tol{}, view, texts, lens{}
                CORE.evaluate(level, R, T) → { score, rows[] };  CORE.starsFor(score)
 src/app.js     game UI: level strip, rack, scope + current strips (canvas), scorecard, features, notebook, assistant
@@ -34,7 +36,7 @@ src/lens.js    LENS_UI.open(level, params): animated membrane, V(t) scrubber, co
 src/shell.html markup + CSS tokens; /*MODELS*/ /*CORE*/ /*LENS*/ /*APP*/ placeholders filled by build.js
 ```
 
-**Data flow.** Moving a slider changes `p[k]`. On the next animation frame, `L.sim(p)` runs and returns `R`. `evaluate(L, R, T)` compares it with the target trace `T`, which is computed once per level from `L.target`. The UI then redraws, stars are awarded, and progress is saved to localStorage.
+**Data flow.** Moving a slider changes `p[k]`. On the next animation frame, `simulate(L, p)` runs: synchronously for single cells, or in a Web Worker for levels with `async: 'tnnpWall'`. The worker is built from `MODELS_FACTORY.toString()`, so it needs no separate file. Only one run is in flight at a time; a slider change during a run marks the state dirty, and the latest parameters run next. The run returns `R`. `evaluate(L, R, T)` compares it with the target trace `T`, which is computed once per level from `L.target`. The UI then redraws, stars are awarded, and progress is saved to localStorage.
 
 **Adding a level.** Append an object to `LEVELS` in `src/core.js`. It needs:
 - `tools`, with `k`, `min`, `max`, `unit`, `col`, and `lin` for linear sliders;
@@ -64,6 +66,10 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Name "Overshoot" (was "Excitable") | Owner's choice. The localStorage key `excitable-progress-v1` is kept so saved progress survives | — |
 | Single-file build, no dependencies | Runs as an artifact, on Pages, or offline from disk | Bundler and framework: unnecessary for ~1,300 lines |
 | Apache-2.0 license | Owner's choice | — |
+| T-wave level: 1D transmural strand (60 cells, dx = 0.2 mm, 1.2 cm), pseudo-ECG with the electrode 2 cm beyond the epicardium | The standard minimal model of the T wave (Gima & Rudy 2002). It answers the project's founding question about ECG shapes | 2D/3D tissue: far too slow in the browser |
+| Epicardial GKs 0.392 (TNNP 2006 value) and D = 0.0007 cm²/ms | With uniform 2004 IKs and realistic conduction (~46 cm/s), activation delay exceeds the APD gradient and T inverts. A border coupling reduction (Cx43 at M/epi) was tried and barely mattered | Reduced M/epi border coupling (kept in `tnnpCable` as `region.border`, unused) |
+| Tissue runs in a Web Worker built from the model source | ~0.7 s per run would freeze the sliders | Run only on slider release: rejected, it loses the live feel |
+| T-wave tolerances looser (tAmp 0.04, QT 8 ms) | T amplitude is very sensitive to epicardial APD. Coupling alone reaches 68.7 %, just below one star, so the gradient must be found | Tighter tolerances: frustrating, non-monotone landscape |
 
 ## Validated numbers (all reproduced by the code)
 
@@ -77,6 +83,8 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Cytosolic Ca²⁺ transient / SR Ca²⁺ | 0.07 → 0.96 µM / 0.35–0.51 mM |
 | Na⁺ entry per squid spike (HH) | ~9×10⁴ ions/µm² ≈ 15 pmol/cm². Measured is 3–4 pmol/cm²; the HH model's Na⁺/K⁺ overlap is known to overestimate it |
 | Thalamic rebound submembrane Ca²⁺ (1 µm shell) | 0.24 → ~7 µM |
+| T-wave wall (target) | QRS 26 ms, T/QRS 0.21 upright, QT 296 ms, Tpeak–Tend 23 ms, APD endo/mid/epi 283/282/253 ms |
+| Uniform wall (start) | QRS 15 ms, T/QRS −0.08 (inverted) |
 
 ## Open items
 
@@ -90,6 +98,8 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 - **TNNP 2004 underweights hERG.** This limits drug-safety (CiPA-style) levels until an O'Hara–Rudy model is added.
 - **Timothy syndrome is modelled as extra conductance** rather than lost voltage-dependent inactivation.
 - **Neuron concentrations are estimates** from integrated currents and a stated geometry. There is no Ca²⁺ or Na⁺ feedback on reversal potentials in the neuron models.
+- **The T-wave strand is 1D.** Its QRS is the transmural activation only, with a small stimulus artefact at t ≈ 2 ms. QT is shorter than a clinical QT because the cells are paced at 1 Hz from a 2004 model with a short APD.
+- **The lens on the T-wave level shows one uncoupled epicardial cell** with the wall's channel densities, not a cell inside the strand.
 - **The lens caps on-screen particles at 2,600.** Very fast playback of the upstroke at the finest dot density drops the oldest dots.
 - **Canvas views have `aria-label`s but no text alternative** for the trace data. Keyboard: sliders, buttons, Esc and Space in the lens.
 - **Progress is per-browser only.** There are no accounts and no class dashboard.
@@ -97,7 +107,7 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 ## Ideas not yet built
 
 - An O'Hara–Rudy 2011 human ventricle (drug block, CiPA), a sinoatrial node pacemaker (I_f), and an atrial cell (Courtemanche).
-- A pseudo-ECG level: a 1D transmural cable (endo, M, epi) whose summed field gives QRS and T waves. This connects back to the original question about QRS shapes.
+- More ECG levels on the existing wall: drug-induced long QT (hERG block across the wall), hyperkalaemia (peaked T, wide QRS), Brugada-like J waves (epicardial Ito with reduced INa).
 - Voltage-clamp levels: identify a channel from its I–V curve.
 - Stochastic single-channel mode in the lens: discrete open/closed channels at real densities.
 - Rate-dependence levels (APD restitution) and multi-protocol fitting to show how degeneracy is resolved.

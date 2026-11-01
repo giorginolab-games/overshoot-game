@@ -19,7 +19,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
 
 ## 3. One idea per level, in a deliberate order
 
-- **Order:** three conductances (squid), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes.
+- **Order:** three conductances (squid), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes. The last level moves from cell to tissue: the ECG as the field of a wall of cells.
 - **Every level starts clearly wrong but alive.** The starting score is below one star, and the cell still produces something to compare. A test enforces the "below one star" part.
 - **Hints come in two tiers.** The free "field notes" point at concepts. The paid "lab assistant" tests every channel numerically and names the most helpful change, but caps the level at ★★. Help is always available, and mastery is still rewarded.
 - **The explanation comes after the effort.** The lab-notebook debrief unlocks at ★. It explains the physiology, links it to the clinic or the history, and compares your channel mix with the original model's.
@@ -33,6 +33,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
   - Rotating discs show transporters.
   - +/− marks on each face of the membrane flip at the overshoot.
 - **Concentrations are plotted against time on the same time base as V(t),** with a shared playhead you can scrub.
+- **Tissue levels show what is inside the signal.** Under the pseudo-ECG are the action potentials at three depths and a depth–time map of membrane potential, so the player can see the activation front (QRS) and the repolarisation order (T wave) that produce it.
 
 ## 5. Honest quantities, stated assumptions
 
@@ -45,6 +46,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
 ## 6. Responsive enough to feel like an instrument
 
 - **Each simulation must finish within about 40 ms,** so the result updates while the slider is still moving (one run per animation frame).
+- **Tissue is the exception.** The T-wave strand takes about 0.7 s per run, so it runs in a Web Worker built from the same model source. The sliders never freeze; while a run is in progress a "Simulating…" pill shows, and only the latest slider position is simulated next.
 - **Choices that buy that speed without changing the physiology the player sees:**
   - Rush–Larsen gates with forward Euler.
   - Adaptive dt in the cardiac model: 0.01 ms during the upstroke, 0.05 ms otherwise.

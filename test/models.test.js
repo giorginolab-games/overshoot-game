@@ -33,4 +33,18 @@ for (const L of C.LEVELS) {
   const uM = q / (2 * 96485.3415) / 16.404e-12 * 1e6;
   ok(uM > 10 && uM < 25, `Ca entry per beat ${uM.toFixed(1)} µM`); }
 
+// T-wave level: physics of the pseudo-ECG
+{ const L = C.LEVELS.find(l => l.id === 'twave');
+  const fT = L.feats(L.sim(L.target)), fS = L.feats(L.sim(L.start));
+  ok(fT.tAmp > 0.15, `wall with transmural gradient: upright T (${fT.tAmp.toFixed(3)})`);
+  ok(fS.tAmp < 0, `uniform wall: inverted T (${fS.tAmp.toFixed(3)})`);
+  const fLow = L.feats(L.sim({ ...L.target, D: L.target.D / 2 }));
+  ok(fLow.qrsDur > fT.qrsDur + 5, `halving gap-junction coupling widens the QRS (${fT.qrsDur} → ${fLow.qrsDur} ms)`);
+  ok(Math.abs(fT.qrsAmp - 1) < 0.02, 'reference QRS normalised to 1'); }
+
+// The worker re-instantiates the models from MODELS_FACTORY's source text
+{ const F2 = new Function(`${global.MODELS.MODELS_FACTORY.toString()}; return MODELS_FACTORY();`)();
+  const a = F2.hh({ gNa: 120, gK: 36, gL: 0.3 }), b2 = M.hh({ gNa: 120, gK: 36, gL: 0.3 });
+  ok(a.V.every((x, i) => x === b2.V[i]), 'factory source re-instantiates identically'); }
+
 console.log(`${n} checks passed`);
