@@ -11,14 +11,15 @@ Everything runs client-side in a single HTML file with no dependencies.
 | # | Level | Model | Tools |
 |---|---|---|---|
 | 1 | Squid giant axon | Hodgkin & Huxley 1952 | Na⁺, K⁺, leak |
-| 2 | Cortical pyramidal cell (regular spiking) | Pospischil et al. 2008 | Nav, Kv2, Kv7 (M-current), leak |
-| 3 | Thalamic neuron (rebound burst) | Pospischil et al. 2008 | Nav, Kv2, Cav3.1 (T-type), leak |
-| 4 | Human ventricular myocyte, epicardium | ten Tusscher, Noble, Noble & Panfilov 2004 | Nav1.5, Cav1.2, Kv4.3, hERG, KCNQ1, Kir2.1 |
-| 5 | Mid-myocardial M cell | same | same (lesson: parameter degeneracy) |
-| 6 | Mystery patient: long QT | same | same (Timothy syndrome, Cav1.2 gain of function) |
-| 7 | Electrolyte emergency | same | extracellular K⁺, Na⁺, Ca²⁺ (hyperkalaemia) |
-| 8 | The T wave | 60 TNNP cells in a 1.2 cm transmural strand + pseudo-ECG (Gima & Rudy 2002) | Cx43 coupling, IKs per layer (endo/mid/epi), epicardial Ito, hERG |
-| 9 | The hERG paradox | same wall, drug block | remaining Cav1.2, Nav1.5, KCNQ1, Kir2.1 current (hERG fixed at 40 %): verapamil-like multichannel block, the CiPA lesson |
+| 2 | Voltage clamp (sodium substitution) | Hodgkin & Huxley 1952, clamped | gNa, gK, external [Na⁺]: current family and I–V curve |
+| 3 | Cortical pyramidal cell (regular spiking) | Pospischil et al. 2008 | Nav, Kv2, Kv7 (M-current), leak |
+| 4 | Thalamic neuron (rebound burst) | Pospischil et al. 2008 | Nav, Kv2, Cav3.1 (T-type), leak |
+| 5 | Human ventricular myocyte, epicardium | ten Tusscher, Noble, Noble & Panfilov 2004 | Nav1.5, Cav1.2, Kv4.3, hERG, KCNQ1, Kir2.1 |
+| 6 | Mid-myocardial M cell | same | same (lesson: parameter degeneracy) |
+| 7 | Mystery patient: long QT | same | same (Timothy syndrome, Cav1.2 gain of function) |
+| 8 | Electrolyte emergency | same | extracellular K⁺, Na⁺, Ca²⁺ (hyperkalaemia) |
+| 9 | The T wave | 60 TNNP cells in a 1.2 cm transmural strand + pseudo-ECG (Gima & Rudy 2002) | Cx43 coupling, IKs per layer (endo/mid/epi), epicardial Ito, hERG |
+| 10 | The hERG paradox | same wall, drug block | remaining Cav1.2, Nav1.5, KCNQ1, Kir2.1 current (hERG fixed at 40 %): verapamil-like multichannel block, the CiPA lesson |
 
 Scoring compares electrophysiological features (resting potential, overshoot, max dV/dt, notch depth, APD50/90, spike count, adaptation, burst latency; QRS width, T amplitude, QT and Tpeak–Tend for the ECG level) plus waveform RMS error. Stars at 70 / 85 / 95 %.
 

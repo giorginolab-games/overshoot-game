@@ -6,6 +6,8 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 ### Added
+- Level 2: voltage clamp. Twelve steps of the HH squid axon recorded in low-sodium sea water; match the current family and the early/late I–V curves, and find [Na⁺]o from the shift of the early-current reversal (Nernst). New `hhStep`/`hhClamp` models.
+- Levels that already have stars stay unlocked when new levels are inserted before them.
 - Lens: scrub time in both directions (time slider, drag on any plot, step and reverse-play buttons, keyboard: arrows, `,` `.`, Space, Home/End).
 - Lens: time-synced events, with a caption, a clickable event list and ticks on V(t). Channel state changes (opens, closes, inactivates, reopens), voltage and concentration landmarks, and level-defining moments (cardiac phases 0–4, M-current adaptation, T-channel recovery and rebound burst, undershoot). The channel named by the current event is outlined on the membrane.
 - Lens: when paused, ions keep flowing at the instantaneous rate (frozen time, live flux).

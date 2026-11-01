@@ -71,6 +71,7 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Name "Overshoot" (was "Excitable") | Owner's choice. The localStorage key `excitable-progress-v1` is kept so saved progress survives | — |
 | Single-file build, no dependencies | Runs as an artifact, on Pages, or offline from disk | Bundler and framework: unnecessary for ~1,300 lines |
 | Apache-2.0 license | Owner's choice | — |
+| Voltage-clamp level inserted as level 2, with sodium substitution (target [Na⁺]o = 132 mM) | It shows the experiment behind the HH model before the current-clamp levels build on it. Na⁺ substitution makes it a puzzle: with sea-water Na⁺ the best fit is 64.7 %, under one star, because channel density cannot move the early-current reversal (tested). The early current is read at the peak of the Na⁺ conductance, as HH did; the largest current in the first 2.5 ms would pick up K⁺ above +15 mV | A plain HH clamp with only gNa/gK: no puzzle |
 | Level 9 is a multichannel drug (hERG 40 % + Cav1.2 70 %), with sliders as % of control current, block only (≤ 100 %), and hERG locked | hERG alone gives QT +26 ms; adding Cav1.2 block restores QT (294 vs 296 ms). With block-only sliders no single wrong channel reaches a star (tested). An earlier draft allowed > 100 %, and "IKs ×1.5" then scored 70.7 % | Free hERG slider: raising hERG back to 100 % mimicked the trial ECG |
 | Hyperkalaemia and Brugada ECG levels dropped | Tested on the wall: high Ko widens the QRS (26 → 38 ms at 8.5 mM) but shrinks the T wave instead of peaking it. The epicardial dome never collapsed (Gto up to 2.2, GNa ×0.5, GCaL ×0.6), so no coved ST elevation. Levels must not teach a wrong ECG | A newer model (O'Hara–Rudy) may reproduce both |
 | T-wave level: 1D transmural strand (60 cells, dx = 0.2 mm, 1.2 cm), pseudo-ECG with the electrode 2 cm beyond the epicardium | The standard minimal model of the T wave (Gima & Rudy 2002). It answers the project's founding question about ECG shapes | 2D/3D tissue: far too slow in the browser |
@@ -90,6 +91,7 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Cytosolic Ca²⁺ transient / SR Ca²⁺ | 0.07 → 0.96 µM / 0.35–0.51 mM |
 | Na⁺ entry per squid spike (HH) | ~9×10⁴ ions/µm² ≈ 15 pmol/cm². Measured is 3–4 pmol/cm²; the HH model's Na⁺/K⁺ overlap is known to overestimate it |
 | Thalamic rebound submembrane Ca²⁺ (1 µm shell) | 0.24 → ~7 µM |
+| HH clamp, early-current reversal | +38.7 mV at 440 mM Na⁺, +13.9 mV at 132 mM (E_Na +50 → +21 mV; Nernst shift −29 mV) |
 | T-wave wall (target) | QRS 26 ms, T/QRS 0.21 upright, QT 296 ms, Tpeak–Tend 23 ms, APD endo/mid/epi 283/282/253 ms |
 | Uniform wall (start) | QRS 15 ms, T/QRS −0.08 (inverted) |
 | Wall with hERG 40 % / hERG 40 % + Cav1.2 70 % | QT 322 / 294 ms (control 296 ms) |

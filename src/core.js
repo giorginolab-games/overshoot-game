@@ -58,6 +58,12 @@ const CORE = (() => {
       apd50: spiked ? apd(0.5) : 0, apd90: spiked ? apd(0.9) : 0 };
   }
 
+  function clampFeatures(R) {
+    const { V, early, late } = R.iv; let pk = 0; for (let i = 0; i < early.length; i++) if (early[i] < early[pk]) pk = i;
+    let erev = NaN; for (let i = pk; i < early.length - 1; i++) if (early[i] < 0 && early[i + 1] >= 0) { erev = V[i] + (V[i + 1] - V[i]) * (-early[i]) / (early[i + 1] - early[i]); break; }
+    if (!isFinite(erev)) erev = early[early.length - 1] < 0 ? 70 : V[0];
+    return { peakIn: early[pk], erev, late55: late[V.indexOf(55)], lateM15: late[V.indexOf(-15)] };
+  }
   function ecgFeatures(R) {
     const e = R.ecg, t = R.t, n = e.length;
     let qi = 0; for (let i = 0; i < n && t[i] < 80; i++) if (Math.abs(e[i]) > Math.abs(e[qi])) qi = i;
@@ -95,6 +101,11 @@ const CORE = (() => {
     qt: { label: 'QT interval', unit: 'ms', d: 0 },
     tpte: { label: 'T peak to T end', unit: 'ms', d: 0 },
     shapeE: { label: 'ECG RMS error', unit: 'norm.', d: 3 },
+    peakIn: { label: 'Peak early inward current', unit: 'mA/cm²', d: 2 },
+    erev: { label: 'Early-current reversal', unit: 'mV', d: 1 },
+    late55: { label: 'Late current at +55 mV', unit: 'mA/cm²', d: 2 },
+    lateM15: { label: 'Late current at −15 mV', unit: 'mA/cm²', d: 2 },
+    shapeI: { label: 'Current RMS error', unit: 'mA/cm²', d: 3 },
   };
 
   // ---------- levels ----------
@@ -126,6 +137,22 @@ const CORE = (() => {
       view: { x: [0, 20], y: [-90, 60], xt: 2, yt: 20 },
       hint0: 'Na⁺ channels make the upstroke; K⁺ channels end the spike and cause the undershoot. Leak sets how hard the cell is to excite.',
       debrief: 'Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm².',
+    },
+    {
+      id: 'clamp', name: 'Voltage clamp', who: 'Loligo · 6.3 °C · voltage clamp', ref: 'Hodgkin & Huxley 1952',
+      brief: 'Before they could build their model, Hodgkin and Huxley had to see the currents. A voltage clamp holds the membrane at a chosen potential and measures the current needed to keep it there. The target shows twelve voltage steps, recorded after part of the sodium in the sea water was replaced by choline. Match the currents and work out how much sodium was left.',
+      protocol: 'Hold −65 mV; 8 ms steps to −55 … +55 mV in 10 mV increments; currents in mA/cm², inward negative', units: { cur: 'µA/cm²' },
+      tools: [
+        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'squid Nav', cur: 'INa', unit: 'mS/cm²', min: 10, max: 400, col: 'c-na' },
+        { k: 'gK', name: 'Delayed-rectifier K⁺', gene: 'squid Kv1 (sqKv1A)', cur: 'IK', unit: 'mS/cm²', min: 3, max: 150, col: 'c-k1' },
+        { k: 'Nao', name: 'External Na⁺', gene: 'sea water [Na⁺] (rest: choline)', cur: 'INa', unit: 'mM', min: 20, max: 460, lin: true, col: 'ion-na' },
+      ],
+      currents: ['INa', 'IK', 'IL'], panel: 'clamp',
+      target: { gNa: 120, gK: 36, gL: 0.3, Nao: 132 }, start: { gNa: 60, gK: 50, gL: 0.3, Nao: 440 },
+      sim: p => M.hhClamp(p), feats: clampFeatures, tol: { peakIn: 0.08, erev: 3, late55: 0.35, lateM15: 0.12, shapeI: 0.12 },
+      view: { x: [0, 9], y: [-1.6, 4.8], xt: 1, yt: 1, yUnit: 'mA/cm²' },
+      hint0: 'The early inward current is carried by Na⁺. It reverses where the voltage cancels the Na⁺ gradient, which channel density cannot change. The late outward current is K⁺ and does not depend on sodium at all.',
+      debrief: 'In 1952 Hodgkin and Huxley separated the two currents by replacing external sodium with choline. The early current shrank and reversed at a less positive voltage, while the late current stayed the same, so the early current had to be Na⁺ and the late one K⁺. Here 30 % sodium (132 mM) moves E_Na from +50 to +21 mV (Nernst at 6.3 °C: 24.1 mV × ln 0.3 = −29 mV). The early current reverses a few mV below E_Na because some K⁺ and leak current already flow when the Na⁺ conductance peaks. Channel density scales the early current but cannot move its reversal, and that is how an experiment tells a change in channel number from a change in driving force. From separated currents like these, Hodgkin and Huxley fitted the m³h and n⁴ kinetics you used in level 1.',
     },
     {
       id: 'pyramidal', name: 'Cortical pyramidal cell', who: 'Rat neocortex · regular spiking', ref: 'Pospischil et al. 2008',
@@ -294,6 +321,13 @@ const CORE = (() => {
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 80, 1), d: 3, col: 'ion-na' },
         { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IK'], 80, 1), d: 3, col: 'ion-k' }],
       note: 'Estimated from the currents for a 500 µm squid axon (surface-to-volume ratio 80 cm⁻¹). One spike raises internal Na⁺ by well under a micromolar, against about 50 mM already there. That is why an axon with its pumps poisoned can still fire many thousands of spikes: an action potential needs only a tiny charge transfer, not a change in concentration.' },
+    clamp: { pA: 1, scope: '100 µm² patch of axon, clamped at 0 mV', speeds: [0.15, 0.8, 3],
+      sim: p => M.hhStep(0, p, { pre: 1, T: 8, out: 0.025 }), view: { x: [0, 9], y: [-100, 60], xt: 1, yt: 20 },
+      ions: p => ({ out: `Na⁺ ${(p.Nao ?? 440).toFixed(0)} mM (rest choline) · K⁺ 20 mM`, in: 'Na⁺ 50 · K⁺ 400 mM (axoplasm)' }),
+      conc: R => [
+        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 80, 1), d: 3, col: 'ion-na' },
+        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IK'], 80, 1), d: 3, col: 'ion-k' }],
+      note: 'One voltage step, from −65 to 0 mV, of a 500 µm axon (surface-to-volume ratio 80 cm⁻¹). The voltage does not move after the step, so every change in current here comes from the gates: Na⁺ channels open then inactivate, K⁺ channels open slowly and stay open. Compare the timing with the early and late currents in the main view.' },
     pyramidal: { pA: 12.57, scope: 'whole 20 µm soma (1,257 µm², 12.6 pF)', speeds: [1, 10, 40], sim: null, ions: () => NEURON_IONS,
       conc: R => [
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' },
@@ -336,6 +370,10 @@ const CORE = (() => {
     IK: ['delayed rectifier opens and repolarises the membrane', 'closes slowly; the lag causes the undershoot'],
     IKd: ['delayed rectifier opens and repolarises the spike', 'closes after the spike'],
   };
+  const CH_DETAIL_CLAMP = {
+    INa: ['m gates open within a millisecond: the early current', 'h gates close even though the voltage is held: inactivation'],
+    IK: ['n gates open with a delay (n⁴ makes it sigmoidal): the late current', 'closes again'],
+  };
   function lensEvents(L, R, p) {
     const ev = [], t = R.t, V = R.V, n = t.length, dt = t[1] - t[0];
     const add = (time, label, detail, kind, ch) => { if (isFinite(time)) ev.push({ t: time, label, detail: detail || '', kind, ch }); };
@@ -350,8 +388,8 @@ const CORE = (() => {
         else { add(t[on], st[on] > 0 ? 'Current step on' : 'Hyperpolarising step on', '', 'stim'); add(t[i], 'Step off', '', 'stim'); }
       }
     }
-    // voltage landmarks (first spike only)
-    let up = -1; for (let i = 1; i < n; i++) if (V[i - 1] < 0 && V[i] >= 0) { up = i; break; }
+    // voltage landmarks (first spike only; none under voltage clamp)
+    let up = -1; if (L.panel !== 'clamp') for (let i = 1; i < n; i++) if (V[i - 1] < 0 && V[i] >= 0) { up = i; break; }
     if (up > 0) {
       let pk = up; while (pk + 1 < n && V[pk + 1] >= V[pk]) pk++;
       add(t[up], 'Overshoot', 'the inside of the membrane turns positive', 'v');
@@ -367,7 +405,7 @@ const CORE = (() => {
       for (let i = 1; i < n && k < 2; i++) {
         const rose = O[i - 1] < th && O[i] >= th, fell = O[i - 1] >= th && O[i] < th;
         if (!rose && !fell) continue;
-        const nm = chName(L, c), d = CH_DETAIL[c] || ['', ''];
+        const nm = chName(L, c), d = (L.panel === 'clamp' && CH_DETAIL_CLAMP[c]) || CH_DETAIL[c] || ['', ''];
         if (rose) add(t[i], `${nm} ${startOpen ? 'reopens' : 'opens'}`, d[0], 'ch', c);
         else add(t[i], `${nm} ${!startOpen && INACT[c] ? 'inactivates' : 'closes'}`, d[1], 'ch', c);
         k++;
@@ -381,7 +419,11 @@ const CORE = (() => {
     // level-defining moments
     const spikes = []; for (let i = 1; i < n; i++) if (V[i - 1] < 0 && V[i] >= 0) spikes.push(t[i]);
     const cardiac = L.currents.includes('ICaL');
-    if (L.id === 'squid') {
+    if (L.id === 'clamp') {
+      let si = 0; while (si < n && V[si] === V[0]) si++;
+      add(t[si], `Command step to ${V[si].toFixed(0)} mV`, 'the clamp jumps the voltage and holds it; from now on only the gates change', 'level');
+      if (R.ENa !== undefined) add(t[n - 1] * 0.98, `E_Na = ${R.ENa > 0 ? '+' : ''}${R.ENa.toFixed(1)} mV`, `set by [Na⁺]o = ${(p.Nao ?? 440).toFixed(0)} mM; the step to 0 mV ${V[si] < R.ENa ? 'is below it, so Na⁺ flows in' : 'is above it, so Na⁺ flows out'}`, 'level');
+    } else if (L.id === 'squid') {
       let mi = 0; for (let i = 0; i < n; i++) if (V[i] < V[mi]) mi = i;
       if (spikes.length) add(t[mi], 'Undershoot', `V reaches ${V[mi].toFixed(1)} mV, close to E_K = −77 mV, because K⁺ channels are still open`, 'level');
     } else if (L.id === 'pyramidal' && spikes.length) {
@@ -420,7 +462,7 @@ const CORE = (() => {
   function rms(a, b) { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s / n); }
   function evaluate(L, R, T) {
     const f = L.feats(R), ft = L.feats(T);
-    for (const sk of ['shape', 'shapeE']) if (sk in L.tol) { f[sk] = rms(R.V, T.V); ft[sk] = 0; }
+    for (const sk of ['shape', 'shapeE', 'shapeI']) if (sk in L.tol) { f[sk] = rms(R.V, T.V); ft[sk] = 0; }
     const rows = []; let tot = 0, n = 0;
     for (const k of Object.keys(L.tol)) {
       const d = (f[k] - ft[k]) / L.tol[k];

@@ -52,6 +52,14 @@ for (const L of C.LEVELS) {
     ok(best < C.STARS[0], `drug: blocking ${k} alone stays below one star (${best.toFixed(1)})`);
   } }
 
+// Voltage clamp: the early-current reversal follows Nernst; channel density alone cannot fake low sodium
+{ const L = C.LEVELS.find(l => l.id === 'clamp'), T = L.sim(L.target);
+  const eHi = L.feats(L.sim({ ...L.target, Nao: 440 })).erev, eLo = L.feats(T).erev;
+  const nernst = 24.08 * Math.log(132 / 440);
+  ok(Math.abs((eLo - eHi) - nernst) < 6, `clamp: reversal shift ${(eLo - eHi).toFixed(1)} mV vs Nernst ${nernst.toFixed(1)} mV`);
+  let best = 0; for (let gNa = 20; gNa < 400; gNa *= 1.15) for (let gK = 5; gK < 150; gK *= 1.15) best = Math.max(best, C.evaluate(L, L.sim({ gNa, gK, gL: 0.3, Nao: 440 }), T).score);
+  ok(best < C.STARS[0], `clamp: sea-water Na⁺ cannot reach one star (${best.toFixed(1)})`); }
+
 // Lens events: sorted, inside the trace, and the level-defining ones are present
 for (const L of C.LEVELS) {
   const R = L.lens.sim(L.target), E = C.lensEvents(L, R, L.target), tEnd = R.t[R.t.length - 1];

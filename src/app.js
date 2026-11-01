@@ -39,7 +39,7 @@
   const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
   const fmt = (x, d) => (x === undefined || !isFinite(x)) ? '—' : x.toFixed(d);
   const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : a >= 0.1 ? x.toFixed(3) : x.toFixed(4); };
-  const unlocked = i => S.unlockAll || i === 0 || (S.stars[LEVELS[i - 1].id] || 0) >= 1;
+  const unlocked = i => S.unlockAll || i === 0 || (S.stars[LEVELS[i - 1].id] || 0) >= 1 || (S.stars[LEVELS[i].id] || 0) >= 1;
 
   // ---- slider mapping ----
   const N = 1000;
@@ -76,11 +76,13 @@
       <h2>${L.name}</h2><p>${L.brief}</p>
       <div class="proto"><span>Protocol</span><span>${L.protocol}</span></div>
       <details class="notes" id="notes"><summary>Field notes (free hint)</summary><p>${L.hint0}</p></details>`;
-    $('scopeLabel').textContent = L.panel === 'wall' ? 'Pseudo-ECG · electrode 2 cm beyond the epicardium' : 'Membrane potential · current clamp';
+    $('scopeLabel').textContent = L.panel === 'wall' ? 'Pseudo-ECG · electrode 2 cm beyond the epicardium'
+      : L.panel === 'clamp' ? 'Membrane current · voltage clamp, 12 steps' : 'Membrane potential · current clamp';
     $('youLabel').textContent = L.panel === 'wall' ? 'Your wall' : 'Your cell';
-    $('curTitle').textContent = L.panel === 'wall' ? 'Inside the wall' : 'What each channel is doing';
+    $('curTitle').textContent = L.panel === 'wall' ? 'Inside the wall' : L.panel === 'clamp' ? 'Current–voltage relation' : 'What each channel is doing';
     $('curUnit').textContent = L.panel === 'wall'
       ? 'Action potentials at three depths (mV), and membrane potential across the whole wall over time. Endocardium at the top.'
+      : L.panel === 'clamp' ? 'Early current (at the peak of the Na⁺ conductance) and late current (end of the step) against step voltage. Dashed and hollow: target.'
       : `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
     $('rackSub').textContent = L.id === 'potassium'
       ? 'The channels are healthy and fixed. Slide to change the patient’s serum ion concentrations.'
@@ -196,7 +198,79 @@
     const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { ctx, w, h: hh };
   }
+  function drawClampScope() {
+    const cv = $('cv'); const { ctx, w, h } = setupCanvas(cv);
+    const v0 = L.view, ml = 52, mr = 40, mt = 8, mb = 30;
+    // widen the current axis when the player's cell goes beyond the target's range
+    let lo = v0.y[0], hi = v0.y[1];
+    for (const f of R.fam) for (const x of f.I) { if (x < lo) lo = x; if (x > hi) hi = x; }
+    const v = Object.assign({}, v0, { y: [lo < v0.y[0] ? Math.floor(lo * 1.05) : lo, hi > v0.y[1] ? Math.ceil(hi * 1.05) : hi], yt: (hi - lo) > 9 ? 2 : v0.yt });
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    const Y = I => mt + (v.y[1] - I) / (v.y[1] - v.y[0]) * (h - mt - mb);
+    ctx.clearRect(0, 0, w, h); ctx.lineWidth = 1;
+    for (const [sx, col] of [[0.2, 'grid-minor'], [1, 'grid-major']]) {
+      ctx.strokeStyle = css(col); ctx.beginPath();
+      for (let t = v.x[0]; t <= v.x[1] + 1e-9; t += sx) { const x = Math.round(X(t)) + .5; ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); }
+      for (let k = Math.ceil(v.y[0] / (sx * v.yt) - 1e-9); k * sx * v.yt <= v.y[1] + 1e-9; k++) { const y = Math.round(Y(k * sx * v.yt)) + .5; ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = css('muted'); ctx.font = `11px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let k = Math.ceil(v.y[0] / v.yt - 1e-9); k * v.yt <= v.y[1] + 1e-9; k++) ctx.fillText(k * v.yt, ml - 6, Y(k * v.yt));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let t = v.x[0] + v.xt; t <= v.x[1] + 1e-9; t += v.xt) ctx.fillText(t + (t + v.xt > v.x[1] + 1e-9 ? ' ms' : ''), X(t), h - mb + 8);
+    ctx.textAlign = 'left'; ctx.fillText(v.yUnit, 4, h - mb + 8);
+    ctx.strokeStyle = css('ink'); ctx.globalAlpha = .35; ctx.beginPath(); ctx.moveTo(ml, Math.round(Y(0)) + .5); ctx.lineTo(w - mr, Math.round(Y(0)) + .5); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.save(); ctx.beginPath(); ctx.rect(ml, mt, w - ml - mr, h - mt - mb); ctx.clip();
+    const fam = (F, col, wdt, dash) => F.forEach(f => {
+      ctx.strokeStyle = css(col); ctx.lineWidth = wdt; ctx.setLineDash(dash || []); ctx.beginPath();
+      for (let i = 0; i < f.t.length; i++) { const x = X(f.t[i]), y = Y(f.I[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    });
+    fam(T.fam, 'target', 2, [5, 4]); ctx.setLineDash([]); fam(R.fam, 'you', 1.5);
+    ctx.restore();
+    ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let lastY = -1e9;
+    R.fam.slice().sort((a, b) => a.I[a.I.length - 1] - b.I[b.I.length - 1]).forEach(f => {
+      const y = Y(f.I[f.I.length - 1]); if (Math.abs(y - lastY) < 11) return; lastY = y;
+      ctx.fillText((f.Vs > 0 ? '+' : '') + f.Vs, w - mr + 4, Math.max(mt + 5, Math.min(h - mb - 5, y)));
+    });
+  }
+  function drawIV() {
+    const cv = $('ci'); const { ctx, w, h } = setupCanvas(cv, 280);
+    const ml = 52, mr = 14, mt = 12, mb = 34, xr = [-60, 60];
+    const all = [...T.iv.early, ...T.iv.late, ...R.iv.early, ...R.iv.late];
+    let lo = Math.min(-0.5, ...all), hi = Math.max(1, ...all); const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const X = V => ml + (V - xr[0]) / (xr[1] - xr[0]) * (w - ml - mr), Y = I => mt + (hi - I) / (hi - lo) * (h - mt - mb);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.beginPath();
+    for (let V = -60; V <= 60; V += 20) { ctx.moveTo(Math.round(X(V)) + .5, mt); ctx.lineTo(Math.round(X(V)) + .5, h - mb); }
+    const step = hi - lo > 4 ? 1 : 0.5;
+    for (let I = Math.ceil(lo / step) * step; I <= hi; I += step) { ctx.moveTo(ml, Math.round(Y(I)) + .5); ctx.lineTo(w - mr, Math.round(Y(I)) + .5); }
+    ctx.stroke();
+    ctx.strokeStyle = css('ink'); ctx.globalAlpha = .4; ctx.beginPath(); ctx.moveTo(ml, Math.round(Y(0)) + .5); ctx.lineTo(w - mr, Math.round(Y(0)) + .5);
+    ctx.moveTo(Math.round(X(0)) + .5, mt); ctx.lineTo(Math.round(X(0)) + .5, h - mb); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.fillStyle = css('muted'); ctx.font = `10.5px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let V = -40; V <= 60; V += 20) ctx.fillText(V + (V === 60 ? ' mV' : ''), X(V), h - mb + 6);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let I = Math.ceil(lo / step) * step; I <= hi; I += step) ctx.fillText(+I.toFixed(1), ml - 6, Y(I));
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('mA/cm²', 4, h - mb + 6);
+    const series = (vals, col, dash, hollow, sq) => {
+      ctx.strokeStyle = css(col); ctx.fillStyle = css(col); ctx.lineWidth = 1.8; ctx.setLineDash(dash ? [5, 4] : []); ctx.beginPath();
+      vals.forEach((I, j) => { const x = X(T.iv.V[j]), y = Y(I); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
+      vals.forEach((I, j) => { const x = X(T.iv.V[j]), y = Y(I); ctx.beginPath(); if (sq) ctx.rect(x - 3.5, y - 3.5, 7, 7); else ctx.arc(x, y, 3.8, 0, 7);
+        if (hollow) { ctx.fillStyle = css('panel'); ctx.fill(); ctx.stroke(); ctx.fillStyle = css(col); } else ctx.fill(); });
+    };
+    series(T.iv.late, 'c-k1', true, true, true); series(T.iv.early, 'c-na', true, true, false);
+    series(R.iv.late, 'c-k1', false, false, true); series(R.iv.early, 'c-na', false, false, false);
+    ctx.font = `700 12px ${css('f-body')}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillStyle = css('c-na'); ctx.fillText('● early (Na⁺)', ml + 8, mt + 2);
+    ctx.fillStyle = css('c-k1'); ctx.fillText('■ late (K⁺)', ml + 8, mt + 18);
+    const fT = L.feats(T); if (isFinite(fT.erev) && fT.erev < 60) {
+      ctx.fillStyle = css('muted'); ctx.font = `10.5px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('target reversal', X(fT.erev), Y(0) - 8); ctx.beginPath(); ctx.arc(X(fT.erev), Y(0), 3, 0, 7); ctx.fill();
+    }
+  }
   function drawScope() {
+    if (L.panel === 'clamp') return drawClampScope();
     const cv = $('cv'); const { ctx, w, h } = setupCanvas(cv);
     const v = L.view, ml = 46, mr = 10, mt = 8, mb = 40;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
@@ -287,6 +361,7 @@
   }
   function drawCurrents() {
     if (L.panel === 'wall') return drawWall();
+    if (L.panel === 'clamp') return drawIV();
     const cv = $('ci'), names = L.currents, sh = 44;
     const { ctx, w, h } = setupCanvas(cv, names.length * sh + 4);
     const v = L.view, ml = 112, mr = 10;
@@ -355,7 +430,7 @@
     let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
     Tdisp = noisy(T.V, span * 0.004 + (L.noise ?? 0.15));
     curScale = {};
-    if (!L.async) { const R0 = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R0.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); } }
+    if (!L.async && L.panel !== 'clamp') { const R0 = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R0.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); } }
     run();
   }
 

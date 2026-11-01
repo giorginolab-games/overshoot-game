@@ -42,6 +42,55 @@ function MODELS_FACTORY() {
     return R;
   }
 
+  // ---------------- HH 1952 under voltage clamp ----------------------------------
+  // p: { gNa, gK, gL, Nao (mM, sea water 440) }. ENa follows Nernst at 6.3 °C: 50 mV + (RT/F) ln(Nao/440).
+  // Steps from a −65 mV holding potential; currents in mA/cm² (inward negative), as in HH 1952.
+  const RTF_63 = 8.314 * 279.45 / 96485 * 1000; // 24.08 mV
+  function hhRates(V) {
+    return { am: 0.1 * vtrap(V + 40, 10), bm: 4 * exp(-(V + 65) / 18), ah: 0.07 * exp(-(V + 65) / 20),
+      bh: 1 / (1 + exp(-(V + 35) / 10)), an: 0.01 * vtrap(V + 55, 10), bn: 0.125 * exp(-(V + 65) / 80) };
+  }
+  function hhStep(Vs, p, opts = {}) {
+    const ENa = 50 + RTF_63 * log((p.Nao ?? 440) / 440), EK = -77, EL = -54.4, Vh = -65;
+    const dt = 0.005, pre = opts.pre ?? 1, T = opts.T ?? 8, out = opts.out ?? 0.05, N = Math.round((pre + T) / out);
+    const r0 = hhRates(Vh);
+    let m = r0.am / (r0.am + r0.bm), h = r0.ah / (r0.ah + r0.bh), n = r0.an / (r0.an + r0.bn);
+    const R = { t: new Float64Array(N), V: new Float64Array(N), Itot: new Float64Array(N), stim: new Float64Array(N),
+      I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, ENa };
+    let k = 0;
+    for (let sI = 0, ns = Math.round((pre + T) / dt); sI < ns && k < N; sI++) {
+      const t = sI * dt, V = t < pre ? Vh : Vs;
+      if (Math.abs(t - k * out) < dt / 2) {
+        // µA/cm² for the lens (same units as current clamp); Itot in mA/cm²
+        const INa = p.gNa * m * m * m * h * (V - ENa), IK = p.gK * n * n * n * n * (V - EK), IL = p.gL * (V - EL);
+        R.t[k] = t; R.V[k] = V; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.Itot[k] = (INa + IK + IL) / 1000;
+        R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+      }
+      const r = hhRates(V); let tau, inf;
+      tau = 1 / (r.am + r.bm); inf = r.am * tau; m = inf + (m - inf) * exp(-dt / tau);
+      tau = 1 / (r.ah + r.bh); inf = r.ah * tau; h = inf + (h - inf) * exp(-dt / tau);
+      tau = 1 / (r.an + r.bn); inf = r.an * tau; n = inf + (n - inf) * exp(-dt / tau);
+    }
+    return R;
+  }
+  const CLAMP_STEPS = [-55, -45, -35, -25, -15, -5, 5, 15, 25, 35, 45, 55];
+  function hhClamp(p) {
+    const fam = CLAMP_STEPS.map(Vs => { const r = hhStep(Vs, p); return { Vs, t: r.t, I: r.Itot, oNa: r.O.INa }; });
+    const iv = { V: [], early: [], late: [], tEarly: [] };
+    for (const f of fam) {
+      // early current: total current when the Na⁺ conductance peaks (as read by Hodgkin & Huxley)
+      let ip = 0; for (let i = 0; i < f.t.length; i++) if (f.oNa[i] > f.oNa[ip]) ip = i;
+      const e = f.I[ip]; iv.tEarly.push(f.t[ip] - 1);
+      let l = 0, c = 0; for (let i = 0; i < f.t.length; i++) if (f.t[i] > f.t[f.t.length - 1] - 1) { l += f.I[i]; c++; }
+      iv.V.push(f.Vs); iv.early.push(e); iv.late.push(l / c);
+    }
+    // concatenated currents so waveform RMS works on R.V
+    const n = fam[0].t.length, V = new Float64Array(n * fam.length), t = new Float64Array(n * fam.length);
+    fam.forEach((f, j) => { V.set(f.I, j * n); for (let i = 0; i < n; i++) t[j * n + i] = j * n + i; });
+    return { fam, iv, V, t, stim: new Float64Array(V.length), ENa: 50 + RTF_63 * log((p.Nao ?? 440) / 440) };
+  }
+
   // ------------- Pospischil et al. 2008 minimal cortical/thalamic models ----
   // INa, IKd (Traub-Miles), IM (Kv7, slow K), IT (Cav3, low-threshold Ca), leak.
   // Units: mS/cm², µA/cm², mV, ms.
@@ -320,7 +369,7 @@ function MODELS_FACTORY() {
       GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
   }
 
-  return { hh, cortical, tnnp, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
+  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 

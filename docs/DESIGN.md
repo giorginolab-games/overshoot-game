@@ -20,7 +20,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
 
 ## 3. One idea per level, in a deliberate order
 
-- **Order:** three conductances (squid), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes. The last two levels move from cell to tissue: the ECG as the field of a wall of cells, and then a drug-safety question asked of that ECG.
+- **Order:** three conductances (squid), then the voltage-clamp experiment that measured them (with sodium substitution), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes. The last two levels move from cell to tissue: the ECG as the field of a wall of cells, and then a drug-safety question asked of that ECG.
 - **Every level starts clearly wrong but alive.** The starting score is below one star, and the cell still produces something to compare. A test enforces the "below one star" part.
 - **Hints come in two tiers.** The free "field notes" point at concepts. The paid "lab assistant" tests every channel numerically and names the most helpful change, but caps the level at ★★. Help is always available, and mastery is still rewarded.
 - **The explanation comes after the effort.** The lab-notebook debrief unlocks at ★. It explains the physiology, links it to the clinic or the history, and compares your channel mix with the original model's.
