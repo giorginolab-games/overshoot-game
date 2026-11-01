@@ -65,3 +65,8 @@ Every push to `main` runs the tests, builds the page and deploys it to GitHub Pa
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Versioning
+
+Semantic Versioning. The version in `package.json` is shown in the page footer; see `CHANGELOG.md`.
+To release: update `CHANGELOG.md`, run `npm version <patch|minor|major>` (bumps `package.json`, rebuilds `dist/`, commits, tags `vX.Y.Z`), then push with `--follow-tags`.
