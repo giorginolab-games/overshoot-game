@@ -13,6 +13,7 @@
   --c-na: #e8590c; --c-ca: #2b8a3e; --c-to: #c2255c; --c-kr: #6741d9; --c-ks: #1971c2;
   --c-k1: #0c7480; --c-lk: #868e96; --c-ncx: #a07000; --c-pump: #74695f;
   --ion-na: #e8590c; --ion-k: #3b5bdb; --ion-ca: #2f9e44; --ion-lk: #868e96;
+  --c-gj: #8f5b2e; --l-endo: #3b5bdb; --l-mid: #9c36b5; --l-epi: #d9480f;
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -25,7 +26,8 @@
   --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
   --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
   --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
-  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; } }
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd;
+  --c-gj: #d9a066; --l-endo: #91a7ff; --l-mid: #e599f7; --l-epi: #ff922b; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
   --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
@@ -33,7 +35,8 @@
   --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
   --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
   --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
-  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; }
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd;
+  --c-gj: #d9a066; --l-endo: #91a7ff; --l-mid: #e599f7; --l-epi: #ff922b; color-scheme: dark; }
 
 * { box-sizing: border-box; }
 body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
@@ -153,6 +156,8 @@ canvas { display: block; width: 100%; }
 .toast .st { color: var(--gold); }
 
 /* lens */
+.busy { font: 12px var(--f-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
 .lensbtn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--accent); color: var(--accent); background: var(--panel); border-radius: 999px; padding: 5px 12px 5px 9px; font-weight: 700; font-size: 13px; cursor: pointer; }
 .lensbtn:hover { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
 .lensbtn svg { width: 16px; height: 16px; }
@@ -179,7 +184,7 @@ canvas { display: block; width: 100%; }
 .lens-scale b { font-weight: 600; color: var(--accent); }
 .lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
 .lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
-@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } .busy { animation: none; } }
 </style>
 
 <div class="wrap">
@@ -198,12 +203,13 @@ canvas { display: block; width: 100%; }
       <section class="card brief" id="brief"></section>
       <section class="card scope">
         <div class="scope-head">
-          <span class="eyebrow">Membrane potential · current clamp</span>
+          <span class="eyebrow" id="scopeLabel">Membrane potential · current clamp</span>
           <button class="lensbtn" id="lensOpen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15 L21 21" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M6.5 10.5 h2 l1-2.5 1.2 5 1-2.5 h1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Magnifying lens</button>
-          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i>Your cell</span></div>
+          <span class="busy" id="busy" hidden>Simulating…</span>
+          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i><span id="youLabel">Your cell</span></span></div>
         </div>
         <canvas id="cv" aria-label="Membrane potential: target recording and your simulated cell"></canvas>
-        <div class="cur-head"><h3>What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
+        <div class="cur-head"><h3 id="curTitle">What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
         <canvas id="ci" aria-label="Ionic currents in your simulated cell"></canvas>
       </section>
       <section class="card debrief" id="debrief"></section>
@@ -237,7 +243,7 @@ canvas { display: block; width: 100%; }
   </div>
 
   <footer class="foot">
-    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
+    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). The T-wave level couples 60 of those ventricular cells in a 1.2 cm transmural strand and computes a pseudo-ECG from the voltage gradients, as in Gima &amp; Rudy 2002. Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
     <div>Progress is saved in this browser. <button id="unlockAll" type="button">Unlock all levels</button> · <button id="wipe" type="button">Reset all progress</button> · <span class="ver">Overshoot v/*VERSION*/</span></div>
   </footer>
 </div>

@@ -17,6 +17,7 @@
   --c-na: #e8590c; --c-ca: #2b8a3e; --c-to: #c2255c; --c-kr: #6741d9; --c-ks: #1971c2;
   --c-k1: #0c7480; --c-lk: #868e96; --c-ncx: #a07000; --c-pump: #74695f;
   --ion-na: #e8590c; --ion-k: #3b5bdb; --ion-ca: #2f9e44; --ion-lk: #868e96;
+  --c-gj: #8f5b2e; --l-endo: #3b5bdb; --l-mid: #9c36b5; --l-epi: #d9480f;
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -29,7 +30,8 @@
   --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
   --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
   --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
-  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; } }
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd;
+  --c-gj: #d9a066; --l-endo: #91a7ff; --l-mid: #e599f7; --l-epi: #ff922b; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
   --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
@@ -37,7 +39,8 @@
   --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
   --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
   --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
-  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; }
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd;
+  --c-gj: #d9a066; --l-endo: #91a7ff; --l-mid: #e599f7; --l-epi: #ff922b; color-scheme: dark; }
 
 * { box-sizing: border-box; }
 body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
@@ -157,6 +160,8 @@ canvas { display: block; width: 100%; }
 .toast .st { color: var(--gold); }
 
 /* lens */
+.busy { font: 12px var(--f-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
 .lensbtn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--accent); color: var(--accent); background: var(--panel); border-radius: 999px; padding: 5px 12px 5px 9px; font-weight: 700; font-size: 13px; cursor: pointer; }
 .lensbtn:hover { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
 .lensbtn svg { width: 16px; height: 16px; }
@@ -183,7 +188,7 @@ canvas { display: block; width: 100%; }
 .lens-scale b { font-weight: 600; color: var(--accent); }
 .lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
 .lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
-@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } .busy { animation: none; } }
 </style>
 
 <div class="wrap">
@@ -202,12 +207,13 @@ canvas { display: block; width: 100%; }
       <section class="card brief" id="brief"></section>
       <section class="card scope">
         <div class="scope-head">
-          <span class="eyebrow">Membrane potential · current clamp</span>
+          <span class="eyebrow" id="scopeLabel">Membrane potential · current clamp</span>
           <button class="lensbtn" id="lensOpen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15 L21 21" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M6.5 10.5 h2 l1-2.5 1.2 5 1-2.5 h1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Magnifying lens</button>
-          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i>Your cell</span></div>
+          <span class="busy" id="busy" hidden>Simulating…</span>
+          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i><span id="youLabel">Your cell</span></span></div>
         </div>
         <canvas id="cv" aria-label="Membrane potential: target recording and your simulated cell"></canvas>
-        <div class="cur-head"><h3>What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
+        <div class="cur-head"><h3 id="curTitle">What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
         <canvas id="ci" aria-label="Ionic currents in your simulated cell"></canvas>
       </section>
       <section class="card debrief" id="debrief"></section>
@@ -241,8 +247,8 @@ canvas { display: block; width: 100%; }
   </div>
 
   <footer class="foot">
-    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
-    <div>Progress is saved in this browser. <button id="unlockAll" type="button">Unlock all levels</button> · <button id="wipe" type="button">Reset all progress</button> · <span class="ver">Overshoot v0.3.0</span></div>
+    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). The T-wave level couples 60 of those ventricular cells in a 1.2 cm transmural strand and computes a pseudo-ECG from the voltage gradients, as in Gima &amp; Rudy 2002. Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
+    <div>Progress is saved in this browser. <button id="unlockAll" type="button">Unlock all levels</button> · <button id="wipe" type="button">Reset all progress</button> · <span class="ver">Overshoot v0.4.0</span></div>
   </footer>
 </div>
 <div class="lens" id="lens" hidden role="dialog" aria-modal="true" aria-labelledby="lensTitle">
@@ -280,7 +286,8 @@ canvas { display: block; width: 100%; }
 // All models: simulate(p) -> { t:Float64Array, V:Float64Array, I:{name:Float64Array}, stim:Float64Array }
 // sampled every `out` ms.
 
-const MODELS = (() => {
+// Factory form so the same source can be re-instantiated inside a Web Worker (see app.js).
+function MODELS_FACTORY() {
   const exp = Math.exp, sqrt = Math.sqrt, log = Math.log;
 
   // safe x/(1-exp(-x/k)) style helper: a*(x)/(1-exp(-x/k))
@@ -371,127 +378,226 @@ const MODELS = (() => {
     arel: 0.016464, brel: 0.25, crel: 0.008232, Vleak: 0.00008 };
   const RTF = C.R * C.T / C.F;
 
+  // One Rush–Larsen/Euler step of a TNNP cell (all state except V). Returns total ionic current (pA/pF).
+  // P: { GNa, GCaL, Gto, GKr, GKs, GK1, Ko, Nao, Cao, sqK, epi, clampNaK }. Last currents/gates go to TN.
+  const TN = { INa: 0, ICaL: 0, Ito: 0, IKr: 0, IKs: 0, IK1: 0, INaCa: 0, INaK: 0, oK1: 0 };
+  function tnnpStep(c, P, dt, Ist) {
+    const V = c.V, Cai = c.Cai, Nai = c.Nai, Ki = c.Ki, Ko = P.Ko, Nao = P.Nao, Cao = P.Cao;
+    const ENa = RTF * log(Nao / Nai), EK = RTF * log(Ko / Ki);
+    const EKs = RTF * log((Ko + C.pKNa * Nao) / (Ki + C.pKNa * Nai)), ECa = 0.5 * RTF * log(Cao / Cai);
+    const INa = P.GNa * c.m * c.m * c.m * c.h * c.j * (V - ENa);
+    const e2 = exp(2 * V / RTF);
+    const ICaL = Math.abs(V) < 1e-4 ? P.GCaL * c.d * c.f * c.fCa * 2 * C.F * (Cai - 0.341 * Cao)
+      : P.GCaL * c.d * c.f * c.fCa * 4 * V * C.F / RTF * (Cai * e2 - 0.341 * Cao) / (e2 - 1);
+    const Ito = P.Gto * c.r * c.s * (V - EK);
+    const IKr = P.GKr * P.sqK * c.xr1 * c.xr2 * (V - EK);
+    const IKs = P.GKs * c.xs * c.xs * (V - EKs);
+    const aK1 = 0.1 / (1 + exp(0.06 * (V - EK - 200)));
+    const bK1 = (3 * exp(0.0002 * (V - EK + 100)) + exp(0.1 * (V - EK - 10))) / (1 + exp(-0.5 * (V - EK)));
+    const oK1 = aK1 / (aK1 + bK1);
+    const IK1 = P.GK1 * P.sqK * oK1 * (V - EK);
+    const eg = exp(C.gamma * V / RTF), eg1 = exp((C.gamma - 1) * V / RTF);
+    const INaCa = C.kNaCa * (eg * Nai * Nai * Nai * Cao - eg1 * Nao * Nao * Nao * Cai * C.alpha) /
+      ((C.KmNai ** 3 + Nao ** 3) * (C.KmCa + Cao) * (1 + C.ksat * eg1));
+    const INaK = C.PNaK * Ko * Nai / ((Ko + C.KmK) * (Nai + C.KmNa) * (1 + 0.1245 * exp(-0.1 * V / RTF) + 0.0353 * exp(-V / RTF)));
+    const IpCa = C.GpCa * Cai / (C.KpCa + Cai);
+    const IpK = C.GpK * (V - EK) / (1 + exp((25 - V) / 5.98));
+    const IbNa = C.GbNa * (V - ENa), IbCa = C.GbCa * (V - ECa);
+    TN.INa = INa; TN.ICaL = ICaL; TN.Ito = Ito; TN.IKr = IKr; TN.IKs = IKs; TN.IK1 = IK1; TN.INaCa = INaCa; TN.INaK = INaK; TN.oK1 = oK1;
+    const Iion = INa + ICaL + Ito + IKr + IKs + IK1 + INaCa + INaK + IpCa + IpK + IbNa + IbCa;
+    // Ca handling
+    const Casr = c.Casr;
+    const Ileak = C.Vleak * (Casr - Cai);
+    const Iup = C.Vmaxup / (1 + C.Kup * C.Kup / (Cai * Cai));
+    const Irel = (C.arel * Casr * Casr / (C.brel * C.brel + Casr * Casr) + C.crel) * c.d * c.g;
+    const bc = 1 / (1 + C.Bufc * C.Kbufc / ((Cai + C.Kbufc) ** 2));
+    const dCai = bc * (Ileak - Iup + Irel - (ICaL + IbCa + IpCa - 2 * INaCa) / (2 * C.Vc * C.F) * C.Cm);
+    const bsr = 1 / (1 + C.Bufsr * C.Kbufsr / ((Casr + C.Kbufsr) ** 2));
+    const dCasr = bsr * C.Vc / C.Vsr * (Iup - Irel - Ileak);
+    if (!P.clampNaK) {
+      c.Nai += dt * (-(INa + IbNa + 3 * INaK + 3 * INaCa) * C.Cm / (C.Vc * C.F));
+      c.Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
+    }
+    // gates (Rush–Larsen)
+    const minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+    const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
+    const hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+    let ah, bh, aj, bj;
+    if (V < -40) {
+      ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
+      aj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23)));
+      bj = 0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
+    } else {
+      ah = 0; bh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1)));
+      aj = 0; bj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)));
+    }
+    c.m = minf + (c.m - minf) * exp(-dt / (am * bm));
+    c.h = hinf + (c.h - hinf) * exp(-dt * (ah + bh));
+    c.j = hinf + (c.j - hinf) * exp(-dt * (aj + bj));
+    const xr1inf = 1 / (1 + exp((-26 - V) / 7));
+    const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
+    c.xr1 = xr1inf + (c.xr1 - xr1inf) * exp(-dt / txr1);
+    const xr2inf = 1 / (1 + exp((V + 88) / 24));
+    const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
+    c.xr2 = xr2inf + (c.xr2 - xr2inf) * exp(-dt / txr2);
+    const xsinf = 1 / (1 + exp((-5 - V) / 14));
+    const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
+    c.xs = xsinf + (c.xs - xsinf) * exp(-dt / txs);
+    const rinf = 1 / (1 + exp((20 - V) / 6)), tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
+    c.r = rinf + (c.r - rinf) * exp(-dt / tr);
+    let sinf, ts;
+    if (P.epi) { sinf = 1 / (1 + exp((V + 20) / 5)); ts = 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3; }
+    else { sinf = 1 / (1 + exp((V + 28) / 5)); ts = 1000 * exp(-((V + 67) ** 2) / 1000) + 8; }
+    c.s = sinf + (c.s - sinf) * exp(-dt / ts);
+    const dinf = 1 / (1 + exp((-5 - V) / 7.5));
+    const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
+    c.d = dinf + (c.d - dinf) * exp(-dt / td);
+    const finf = 1 / (1 + exp((V + 20) / 7));
+    const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
+    c.f = finf + (c.f - finf) * exp(-dt / tf);
+    const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
+      0.2 / (1 + exp((Cai - 0.00075) / 0.0008)) + 0.23) / 1.46;
+    const fCan = fCainf + (c.fCa - fCainf) * exp(-dt / C.taufca);
+    if (!(fCainf > c.fCa && V > -60)) c.fCa = fCan;
+    const ginf = Cai <= 0.00035 ? 1 / (1 + (Cai / 0.00035) ** 6) : 1 / (1 + (Cai / 0.00035) ** 16);
+    const gn = ginf + (c.g - ginf) * exp(-dt / C.taug);
+    if (!(ginf > c.g && V > -60)) c.g = gn;
+    c.Cai = Cai + dt * dCai; c.Casr = Casr + dt * dCasr;
+    return Iion;
+  }
+  const TNNP_INIT = { V: -86.2, Cai: 0.0002, Casr: 0.2, Nai: 11.6, Ki: 138.3, m: 0, h: 0.75, j: 0.75,
+    xr1: 0, xr2: 1, xs: 0, r: 0, s: 1, d: 0, f: 1, fCa: 1, g: 1 };
+  const tnnpParams = (p, cell, clampNaK) => {
+    const Ko = p.Ko ?? 5.4;
+    return { GNa: p.GNa, GCaL: p.GCaL, Gto: p.Gto, GKr: p.GKr, GKs: p.GKs, GK1: p.GK1, Ko, Nao: p.Nao ?? 140, Cao: p.Cao ?? 2,
+      sqK: sqrt(Ko / 5.4), epi: cell !== 'endo', clampNaK: !!clampNaK };
+  };
+
   function tnnp(p, opts = {}) {
-    const GNa = p.GNa, GCaL = p.GCaL, Gto = p.Gto, GKr = p.GKr, GKs = p.GKs, GK1 = p.GK1;
-    const Ko = p.Ko ?? 5.4, Nao = p.Nao ?? 140, Cao = p.Cao ?? 2;
-    const epi = opts.cell !== 'endo';
+    const P = tnnpParams(p, opts.cell, opts.clampNaK);
     const BCL = opts.BCL || 1000, beats = opts.beats || 3, out = opts.out || 1, T = opts.T || 600;
-    const st = Object.assign({ V: -86.2, Cai: 0.0002, Casr: 0.2, Nai: 11.6, Ki: 138.3, m: 0, h: 0.75, j: 0.75,
-      xr1: 0, xr2: 1, xs: 0, r: 0, s: 1, d: 0, f: 1, fCa: 1, g: 1 }, opts.init || {});
-    let { V, Cai, Casr, Nai, Ki, m, h, j, xr1, xr2, xs, r, s, d, f, fCa, g } = st;
+    const c = Object.assign({}, TNNP_INIT, opts.init || {});
     const N = Math.round(T / out);
     const names = ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1', 'INaCa', 'INaK'];
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {}, C: {} };
-    for (const c of names) R.I[c] = new Float64Array(N);
-    for (const c of ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1']) R.O[c] = new Float64Array(N);
-    for (const c of ['Cai', 'Casr', 'Nai', 'Ki']) R.C[c] = new Float64Array(N);
-    const sqK = sqrt(Ko / 5.4);
+    for (const n of names) R.I[n] = new Float64Array(N);
+    for (const n of ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1']) R.O[n] = new Float64Array(N);
+    for (const n of ['Cai', 'Casr', 'Nai', 'Ki']) R.C[n] = new Float64Array(N);
     let t = 0, k = 0, Vmax = -1e9, dVmax = 0; const tEnd = (beats - 1) * BCL + T, rec0 = (beats - 1) * BCL;
     while (t < tEnd - 1e-9) {
       const tb = t % BCL;
       const dt = (tb < 12 || (opts.fine && tb < 40)) ? 0.01 : 0.05;
-      const ENa = RTF * log(Nao / Nai), EK = RTF * log(Ko / Ki);
-      const EKs = RTF * log((Ko + C.pKNa * Nao) / (Ki + C.pKNa * Nai)), ECa = 0.5 * RTF * log(Cao / Cai);
-      // currents
-      const INa = GNa * m * m * m * h * j * (V - ENa);
-      const VF = V * C.F, e2 = exp(2 * V / RTF);
-      let ICaL;
-      if (Math.abs(V) < 1e-4) ICaL = GCaL * d * f * fCa * 2 * C.F * (Cai - 0.341 * Cao);
-      else ICaL = GCaL * d * f * fCa * 4 * V * C.F / RTF * (Cai * e2 - 0.341 * Cao) / (e2 - 1);
-      const Ito = Gto * r * s * (V - EK);
-      const IKr = GKr * sqK * xr1 * xr2 * (V - EK);
-      const IKs = GKs * xs * xs * (V - EKs);
-      const aK1 = 0.1 / (1 + exp(0.06 * (V - EK - 200)));
-      const bK1 = (3 * exp(0.0002 * (V - EK + 100)) + exp(0.1 * (V - EK - 10))) / (1 + exp(-0.5 * (V - EK)));
-      const IK1 = GK1 * sqK * (aK1 / (aK1 + bK1)) * (V - EK);
-      const eg = exp(C.gamma * V / RTF), eg1 = exp((C.gamma - 1) * V / RTF);
-      const INaCa = C.kNaCa * (eg * Nai * Nai * Nai * Cao - eg1 * Nao * Nao * Nao * Cai * C.alpha) /
-        ((C.KmNai ** 3 + Nao ** 3) * (C.KmCa + Cao) * (1 + C.ksat * eg1));
-      const INaK = C.PNaK * Ko * Nai / ((Ko + C.KmK) * (Nai + C.KmNa) * (1 + 0.1245 * exp(-0.1 * V / RTF) + 0.0353 * exp(-V / RTF)));
-      const IpCa = C.GpCa * Cai / (C.KpCa + Cai);
-      const IpK = C.GpK * (V - EK) / (1 + exp((25 - V) / 5.98));
-      const IbNa = C.GbNa * (V - ENa), IbCa = C.GbCa * (V - ECa);
       const Ist = (tb < 1) ? -52 : 0;
-      if (t >= rec0 - 1e-9 && k < N && t - rec0 >= k * out - 1e-9) {
-        R.t[k] = t - rec0; R.V[k] = V; R.stim[k] = Ist;
-        R.I.INa[k] = INa; R.I.ICaL[k] = ICaL; R.I.Ito[k] = Ito; R.I.IKr[k] = IKr; R.I.IKs[k] = IKs;
-        R.I.IK1[k] = IK1; R.I.INaCa[k] = INaCa; R.I.INaK[k] = INaK;
-        R.O.INa[k] = m * m * m * h * j; R.O.ICaL[k] = d * f * Math.min(fCa, 1); R.O.Ito[k] = r * s;
-        R.O.IKr[k] = xr1 * xr2; R.O.IKs[k] = xs * xs; R.O.IK1[k] = aK1 / (aK1 + bK1);
-        R.C.Cai[k] = Cai; R.C.Casr[k] = Casr; R.C.Nai[k] = Nai; R.C.Ki[k] = Ki; k++;
+      const rec = t >= rec0 - 1e-9 && k < N && t - rec0 >= k * out - 1e-9;
+      // record the state at the start of the step (gates before update)
+      if (rec) {
+        R.O.INa[k] = c.m * c.m * c.m * c.h * c.j; R.O.ICaL[k] = c.d * c.f * Math.min(c.fCa, 1); R.O.Ito[k] = c.r * c.s;
+        R.O.IKr[k] = c.xr1 * c.xr2; R.O.IKs[k] = c.xs * c.xs;
+        R.C.Cai[k] = c.Cai; R.C.Casr[k] = c.Casr; R.C.Nai[k] = c.Nai; R.C.Ki[k] = c.Ki;
       }
-      const Iion = INa + ICaL + Ito + IKr + IKs + IK1 + INaCa + INaK + IpCa + IpK + IbNa + IbCa;
+      const V = c.V;
+      const Iion = tnnpStep(c, P, dt, Ist);
+      if (rec) {
+        R.t[k] = t - rec0; R.V[k] = V; R.stim[k] = Ist; R.O.IK1[k] = TN.oK1;
+        for (const n of names) R.I[n][k] = TN[n];
+        k++;
+      }
       if (t >= rec0 - 1e-9) { if (V > Vmax) Vmax = V; const dv = -(Iion + Ist); if (dv > dVmax) dVmax = dv; }
-      // Ca handling
-      const Ileak = C.Vleak * (Casr - Cai);
-      const Iup = C.Vmaxup / (1 + C.Kup * C.Kup / (Cai * Cai));
-      const Irel = (C.arel * Casr * Casr / (C.brel * C.brel + Casr * Casr) + C.crel) * d * g;
-      const bc = 1 / (1 + C.Bufc * C.Kbufc / ((Cai + C.Kbufc) ** 2));
-      const dCai = bc * (Ileak - Iup + Irel - (ICaL + IbCa + IpCa - 2 * INaCa) / (2 * C.Vc * C.F) * C.Cm);
-      const bsr = 1 / (1 + C.Bufsr * C.Kbufsr / ((Casr + C.Kbufsr) ** 2));
-      const dCasr = bsr * C.Vc / C.Vsr * (Iup - Irel - Ileak);
-      if (!opts.clampNaK) {
-        Nai += dt * (-(INa + IbNa + 3 * INaK + 3 * INaCa) * C.Cm / (C.Vc * C.F));
-        Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
-      }
-      // gates (Rush–Larsen)
-      const minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
-      const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
-      const hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
-      let ah, bh, aj, bj;
-      if (V < -40) {
-        ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
-        aj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23)));
-        bj = 0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
-      } else {
-        ah = 0; bh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1)));
-        aj = 0; bj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)));
-      }
-      m = minf + (m - minf) * exp(-dt / (am * bm));
-      h = hinf + (h - hinf) * exp(-dt * (ah + bh));
-      j = hinf + (j - hinf) * exp(-dt * (aj + bj));
-      const xr1inf = 1 / (1 + exp((-26 - V) / 7));
-      const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
-      xr1 = xr1inf + (xr1 - xr1inf) * exp(-dt / txr1);
-      const xr2inf = 1 / (1 + exp((V + 88) / 24));
-      const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
-      xr2 = xr2inf + (xr2 - xr2inf) * exp(-dt / txr2);
-      const xsinf = 1 / (1 + exp((-5 - V) / 14));
-      const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
-      xs = xsinf + (xs - xsinf) * exp(-dt / txs);
-      const rinf = 1 / (1 + exp((20 - V) / 6)), tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
-      r = rinf + (r - rinf) * exp(-dt / tr);
-      let sinf, ts;
-      if (epi) { sinf = 1 / (1 + exp((V + 20) / 5)); ts = 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3; }
-      else { sinf = 1 / (1 + exp((V + 28) / 5)); ts = 1000 * exp(-((V + 67) ** 2) / 1000) + 8; }
-      s = sinf + (s - sinf) * exp(-dt / ts);
-      const dinf = 1 / (1 + exp((-5 - V) / 7.5));
-      const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
-      d = dinf + (d - dinf) * exp(-dt / td);
-      const finf = 1 / (1 + exp((V + 20) / 7));
-      const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
-      f = finf + (f - finf) * exp(-dt / tf);
-      const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
-        0.2 / (1 + exp((Cai - 0.00075) / 0.0008)) + 0.23) / 1.46;
-      const fCan = fCainf + (fCa - fCainf) * exp(-dt / C.taufca);
-      if (!(fCainf > fCa && V > -60)) fCa = fCan;
-      const ginf = Cai <= 0.00035 ? 1 / (1 + (Cai / 0.00035) ** 6) : 1 / (1 + (Cai / 0.00035) ** 16);
-      const gn = ginf + (g - ginf) * exp(-dt / C.taug);
-      if (!(ginf > g && V > -60)) g = gn;
-      // concentrations & V
-      Cai += dt * dCai; Casr += dt * dCasr;
-      V += -dt * (Iion + Ist);
+      c.V = V - dt * (Iion + Ist);
       t += dt;
     }
     R.Vmax = Vmax; R.dVdtMax = dVmax;
-    R.state = { V, Cai, Casr, Nai, Ki, m, h, j, xr1, xr2, xs, r, s, d, f, fCa, g };
+    R.state = Object.assign({}, c);
     return R;
   }
 
-  return { hh, cortical, tnnp };
-})();
+  // ---------------- 1D transmural strand + pseudo-ECG (Gima & Rudy 2002 style) --
+  // spec: { D (cm²/ms), L (cm), dx (cm), regions: [{ to: fraction, cell: 'endo'|'epi', p: {...}, init: state }],
+  //         electrode: distance beyond the epicardial end (cm), ecgScale }; region.border scales coupling at its right edge
+  // Stimulated at the endocardial end. Returns { t, V: ecg, ecg, aps:{endo,M,epi}, map, nx, mapDt, act, rep }.
+  function tnnpCable(spec, opts = {}) {
+    const dx = spec.dx || 0.02, L = spec.L || 1.2, nx = Math.round(L / dx), D = spec.D;
+    const T = opts.T || 560, out = opts.out || 1, mapDt = opts.mapDt || 2;
+    const cells = [], Ps = [], reg = new Int8Array(nx);
+    for (let i = 0; i < nx; i++) {
+      const fr = (i + 0.5) / nx; let r = 0; while (r < spec.regions.length - 1 && fr > spec.regions[r].to) r++;
+      reg[i] = r; const R0 = spec.regions[r];
+      cells.push(Object.assign({}, TNNP_INIT, R0.init || {}));
+      Ps.push(R0._P || (R0._P = tnnpParams(R0.p, R0.cell, true)));
+    }
+    const mid = r => { let a = -1, b = -1; for (let i = 0; i < nx; i++) if (reg[i] === r) { if (a < 0) a = i; b = i; } return a < 0 ? 0 : Math.round((a + b) / 2); };
+    const probe = spec.regions.map((_, r) => mid(r));
+    const N = Math.round(T / out), NM = Math.round(T / mapDt);
+    const R = { t: new Float64Array(N), ecg: new Float64Array(N), stim: new Float64Array(N), aps: spec.regions.map(() => new Float64Array(N)),
+      map: new Float32Array(NM * nx), nx, nm: NM, mapDt, act: new Float64Array(nx).fill(NaN), rep: new Float64Array(nx).fill(NaN), probe, reg: Array.from(reg) };
+    // pseudo-ECG weights: φ = -K Σ (V[i+1]-V[i]) (1/r[i+1] - 1/r[i]) / dx
+    const xe = L + (spec.electrode || 2), w = new Float64Array(nx - 1);
+    for (let i = 0; i < nx - 1; i++) w[i] = (1 / (xe - (i + 1.5) * dx) - 1 / (xe - (i + 0.5) * dx)) / dx;
+    const K = spec.ecgScale || 1;
+    const Iion = new Float64Array(nx), Vold = new Float64Array(nx);
+    // coupling per interface i|i+1; spec.border = factor applied at each region boundary (e.g. reduced Cx43 at M|epi)
+    const cf = new Float64Array(nx - 1);
+    for (let i = 0; i < nx - 1; i++) { cf[i] = D / (dx * dx); if (reg[i] !== reg[i + 1] && spec.regions[reg[i]].border) cf[i] *= spec.regions[reg[i]].border; }
+    let t = 0, k = 0, km = 0;
+    while (t < T - 1e-9) {
+      const dt = t < 80 ? 0.02 : 0.05;
+      const stimOn = t < 2;
+      if (t - k * out >= -1e-9 && k < N) {
+        let phi = 0; for (let i = 0; i < nx - 1; i++) phi += (cells[i + 1].V - cells[i].V) * w[i];
+        R.t[k] = t; R.ecg[k] = -K * phi; R.stim[k] = stimOn ? 1 : 0;
+        for (let r = 0; r < probe.length; r++) R.aps[r][k] = cells[probe[r]].V;
+        k++;
+      }
+      if (t - km * mapDt >= -1e-9 && km < NM) { for (let i = 0; i < nx; i++) R.map[km * nx + i] = cells[i].V; km++; }
+      for (let i = 0; i < nx; i++) {
+        const Ist = (stimOn && i < 3) ? -60 : 0;
+        Vold[i] = cells[i].V;
+        Iion[i] = tnnpStep(cells[i], Ps[i], dt, Ist) + Ist;
+      }
+      for (let i = 0; i < nx; i++) {
+        const fl = i > 0 ? cf[i - 1] * (Vold[i - 1] - Vold[i]) : 0, fr = i < nx - 1 ? cf[i] * (Vold[i + 1] - Vold[i]) : 0;
+        const Vn = Vold[i] + dt * (fl + fr - Iion[i]);
+        if (isNaN(R.act[i]) && Vold[i] < -20 && Vn >= -20) R.act[i] = t;
+        if (!isNaN(R.act[i]) && isNaN(R.rep[i]) && t > R.act[i] + 20 && Vold[i] >= -70 && Vn < -70) R.rep[i] = t;
+        cells[i].V = Vn;
+      }
+      t += dt;
+    }
+    R.V = R.ecg;
+    return R;
+  }
 
-if (typeof module !== 'undefined') module.exports = MODELS;
+  // ---------------- ventricular wall used by the T-wave level -------------------
+  // p: { D (cm²/ms), GKsEndo, GKsM, GKsEpi, GtoEpi, GKr }. Endo 0–25 %, M 25–60 %, epi 60–100 % of a 1.2 cm strand.
+  const TNNP_REF = { GNa: 14.838, GCaL: 1.75e-4, Gto: 0.294, GKr: 0.096, GKs: 0.245, GK1: 5.405 };
+  const TNNP_SS = { V: -86.2797, Cai: 0.0000686, Casr: 0.486, Nai: 11.3013, Ki: 138.2946, m: 0.00137, h: 0.7725,
+    j: 0.7638, xr1: 0.00067, xr2: 0.482, xs: 0.003, r: 2e-8, s: 0.99999, d: 0.0000197, f: 0.98895, fCa: 1.006, g: 0.99994 };
+  const ssCache = new Map();
+  function paced(p, cell) { // single-cell state at end of diastole after 4 beats at 1 Hz
+    const key = cell + JSON.stringify(p);
+    if (!ssCache.has(key)) { if (ssCache.size > 200) ssCache.clear(); ssCache.set(key, tnnp(p, { beats: 4, init: TNNP_SS, clampNaK: true, cell, T: 999 }).state); }
+    return ssCache.get(key);
+  }
+  const WALL_ECG_SCALE = 1 / 24.26; // normalises the reference wall's QRS to 1
+  function wallRegions(p) {
+    const base = Object.assign({}, TNNP_REF, { GKr: p.GKr });
+    const defs = [
+      { to: 0.25, cell: 'endo', p: Object.assign({}, base, { Gto: 0.073, GKs: p.GKsEndo }) },
+      { to: 0.60, cell: 'epi', p: Object.assign({}, base, { GKs: p.GKsM }) },
+      { to: 1.00, cell: 'epi', p: Object.assign({}, base, { Gto: p.GtoEpi, GKs: p.GKsEpi }) },
+    ];
+    for (const d of defs) d.init = paced(d.p, d.cell);
+    return defs;
+  }
+  function tnnpWall(p, opts = {}) {
+    return tnnpCable({ D: p.D, L: 1.2, dx: 0.02, regions: wallRegions(p), electrode: 2, ecgScale: WALL_ECG_SCALE }, { T: opts.T || 560, out: 1, mapDt: 2 });
+  }
+
+  return { hh, cortical, tnnp, tnnpCable, tnnpWall, wallRegions };
+}
+const MODELS = MODELS_FACTORY();
+
+if (typeof module !== 'undefined') { module.exports = MODELS; module.exports.MODELS_FACTORY = MODELS_FACTORY; }
 
 // ===== Levels, features, scoring =========================================
 const CORE = (() => {
@@ -553,6 +659,16 @@ const CORE = (() => {
       apd50: spiked ? apd(0.5) : 0, apd90: spiked ? apd(0.9) : 0 };
   }
 
+  function ecgFeatures(R) {
+    const e = R.ecg, t = R.t, n = e.length;
+    let qi = 0; for (let i = 0; i < n && t[i] < 80; i++) if (Math.abs(e[i]) > Math.abs(e[qi])) qi = i;
+    const qa = e[qi]; let q0 = -1, q1 = -1;
+    for (let i = 0; i < n && t[i] < 150; i++) if (Math.abs(e[i]) > 0.1 * Math.abs(qa)) { if (q0 < 0) q0 = i; q1 = i; }
+    let ti = -1; for (let i = 0; i < n; i++) if (t[i] > t[q1] + 60 && (ti < 0 || Math.abs(e[i]) > Math.abs(e[ti]))) ti = i;
+    let te = ti; for (let i = ti; i < n; i++) if (Math.abs(e[i]) > 0.1 * Math.abs(e[ti])) te = i;
+    return { qrsAmp: qa, qrsDur: t[q1] - t[q0], tAmp: e[ti], tPeak: t[ti] - t[q0], qt: t[te] - t[q0], tpte: t[te] - t[ti] };
+  }
+
   // ---------- feature metadata ----------
   const F = {
     rest: { label: 'Resting potential', unit: 'mV', d: 1 },
@@ -573,6 +689,13 @@ const CORE = (() => {
     apd50: { label: 'APD50', unit: 'ms', d: 0 },
     apd90: { label: 'APD90', unit: 'ms', d: 0 },
     shape: { label: 'Waveform RMS error', unit: 'mV', d: 1 },
+    qrsAmp: { label: 'QRS amplitude', unit: 'norm.', d: 2 },
+    qrsDur: { label: 'QRS duration', unit: 'ms', d: 0 },
+    tAmp: { label: 'T-wave amplitude', unit: 'norm.', d: 3 },
+    tPeak: { label: 'QRS onset to T peak', unit: 'ms', d: 0 },
+    qt: { label: 'QT interval', unit: 'ms', d: 0 },
+    tpte: { label: 'T peak to T end', unit: 'ms', d: 0 },
+    shapeE: { label: 'ECG RMS error', unit: 'norm.', d: 3 },
   };
 
   // ---------- levels ----------
@@ -690,6 +813,27 @@ const CORE = (() => {
       hint0: 'Look at the resting potential first. Which ion\'s Nernst potential sets it? The kidneys excrete that ion.',
       debrief: 'Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells.',
     },
+    {
+      id: 'twave', name: 'The T wave', who: 'Human LV wall · 1.2 cm transmural strand · 1 Hz', ref: 'Gima & Rudy 2002; ten Tusscher et al. 2004/2006',
+      brief: 'The ECG is not the voltage of any one cell. It is the electric field of a whole wall of cells, activating and recovering at slightly different times. This is a 1.2 cm strip of left-ventricular wall, stimulated on the endocardial side and recorded by an electrode 2 cm beyond the epicardium. Right now every layer is the same, so the QRS is too narrow and the T wave points the wrong way. Give the wall its real layers.',
+      protocol: 'Endocardial stimulus at t = 0; single cells pre-paced at 1 Hz; pseudo-ECG scaled so the reference QRS = 1', units: { cur: 'pA/pF' },
+      tools: [
+        { k: 'D', name: 'Gap junctions', gene: 'Cx43 · GJA1 (coupling D)', cur: 'INa', unit: 'cm²/s', scale: 1000, min: 0.0002, max: 0.003, col: 'c-gj' },
+        { k: 'GKsEndo', name: 'Endocardium: slow K⁺', gene: 'KCNQ1 · inner 25 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-endo' },
+        { k: 'GKsM', name: 'Midwall: slow K⁺', gene: 'KCNQ1 · middle 35 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-mid' },
+        { k: 'GKsEpi', name: 'Epicardium: slow K⁺', gene: 'KCNQ1 · outer 40 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-epi' },
+        { k: 'GtoEpi', name: 'Epicardium: transient out', gene: 'Kv4.3 · KCND3', cur: 'Ito', unit: 'nS/pF', min: 0.01, max: 1.2, col: 'c-to' },
+        { k: 'GKr', name: 'Whole wall: hERG', gene: 'Kv11.1 · KCNH2', cur: 'IKr', unit: 'nS/pF', min: 0.01, max: 0.4, col: 'c-kr' },
+      ],
+      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWall', noise: 0.004,
+      target: { D: 0.0007, GKsEndo: 0.245, GKsM: 0.062, GKsEpi: 0.392, GtoEpi: 0.294, GKr: 0.096 },
+      start: { D: 0.0016, GKsEndo: 0.245, GKsM: 0.245, GKsEpi: 0.245, GtoEpi: 0.294, GKr: 0.096 },
+      sim: p => M.tnnpWall(p), feats: ecgFeatures,
+      tol: { qrsAmp: 0.06, qrsDur: 3, tAmp: 0.04, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.04 },
+      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
+      hint0: 'QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.',
+      debrief: 'The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart\'s geometry and on the torso, which needs whole-heart models.',
+    },
   ];
   for (const L of LEVELS) {
     if (L.model === undefined && L.tools === CARD_TOOLS) {
@@ -743,6 +887,11 @@ const CORE = (() => {
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
       note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
     epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
+    twave: Object.assign({}, CARD_LENS, {
+      sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      note: 'This is one epicardial cell with your wall\'s channel densities, uncoupled from its neighbours, so you can watch the K⁺ currents that end its action potential early. In the wall, coupling to the longer-lasting midwall cells pulls its repolarisation a little later. ' + CARD_LENS.note,
+    }),
   };
   for (const L of LEVELS) { L.lens = LENS[L.id]; if (!L.lens.sim) L.lens = Object.assign({}, L.lens, { sim: L.sim }); }
 
@@ -750,7 +899,7 @@ const CORE = (() => {
   function rms(a, b) { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s / n); }
   function evaluate(L, R, T) {
     const f = L.feats(R), ft = L.feats(T);
-    if ('shape' in L.tol) { f.shape = rms(R.V, T.V); ft.shape = 0; }
+    for (const sk of ['shape', 'shapeE']) if (sk in L.tol) { f[sk] = rms(R.V, T.V); ft[sk] = 0; }
     const rows = []; let tot = 0, n = 0;
     for (const k of Object.keys(L.tol)) {
       const d = (f[k] - ft[k]) / L.tol[k];
@@ -962,7 +1111,7 @@ const LENS_UI = (() => {
 
   function drawTrace(i) {
     const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
-    const v = L.view, ml = 40, mr = 8, mt = 6, mb = 6;
+    const v = (L.lens.view || L.view), ml = 40, mr = 8, mt = 6, mb = 6;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
     ctx.clearRect(0, 0, w, h);
@@ -980,7 +1129,7 @@ const LENS_UI = (() => {
 
   function drawConc(i) {
     const cv = $('lc'), sh = 54; const { ctx, w, h } = sizeCanvas(cv, conc.length * sh);
-    const v = L.view, ml = 150, mr = 8;
+    const v = (L.lens.view || L.view), ml = 150, mr = 8;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     ctx.clearRect(0, 0, w, h);
     conc.forEach((c, k) => {
@@ -1005,7 +1154,7 @@ const LENS_UI = (() => {
 
   // ---- controls ----
   function scrub(e) {
-    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = L.view;
+    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = (L.lens.view || L.view);
     const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
     const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
     tm = Math.max(0, Math.min(R.t[R.t.length - 1], t));
@@ -1046,7 +1195,28 @@ const LENS_UI = (() => {
   const CUR_NAME = { INa: 'Na⁺', ICaL: 'Ca²⁺ L-type', IT: 'Ca²⁺ T-type', Ito: 'transient out', IKr: 'K⁺ rapid', IKs: 'K⁺ slow',
     IM: 'K⁺ M-type', IK1: 'K⁺ inward rect.', IK: 'K⁺', IKd: 'K⁺ delayed rect.', IL: 'leak', INaCa: 'Na⁺/Ca²⁺ exch.', INaK: 'Na⁺/K⁺ pump' };
 
-  let idx = 0, L, p, T, Tdisp, R, ev, curScale = {}, pending = false;
+  let idx = 0, L, p, T, Tdisp, R, Rlevel = null, ev, curScale = {}, pending = false, busy = false, dirty = false, gen = 0;
+
+  // ---- simulation: synchronous for single cells, Web Worker for tissue levels ----
+  let worker = null, wseq = 0; const wcb = new Map();
+  function getWorker() {
+    if (worker !== null) return worker;
+    try {
+      const src = `${MODELS_FACTORY.toString()}\nconst MODELS = MODELS_FACTORY();\n` +
+        `onmessage = e => { const { id, fn, p } = e.data; try { postMessage({ id, R: MODELS[fn](p) }); } catch (err) { postMessage({ id, err: String(err) }); } };`;
+      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      worker.onmessage = e => { const cb = wcb.get(e.data.id); wcb.delete(e.data.id); if (cb) e.data.err ? cb.rej(new Error(e.data.err)) : cb.res(e.data.R); };
+      worker.onerror = () => { worker = false; for (const [id, cb] of wcb) { wcb.delete(id); cb.fallback(); } };
+    } catch (e) { worker = false; }
+    return worker;
+  }
+  function simulate(level, q) {
+    if (!level.async) return Promise.resolve(level.sim(q));
+    const sync = () => new Promise(res => setTimeout(() => res(level.sim(q)), 0));
+    const w = getWorker(); if (!w) return sync();
+    return new Promise((res, rej) => { const id = ++wseq; wcb.set(id, { res, rej, fallback: () => sync().then(res) }); w.postMessage({ id, fn: level.async, p: q }); });
+  }
+  function setBusy(on, label) { const b = $('busy'); b.hidden = !(on && L && L.async); if (label) b.textContent = label; }
 
   const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
   const fmt = (x, d) => (x === undefined || !isFinite(x)) ? '—' : x.toFixed(d);
@@ -1088,7 +1258,12 @@ const LENS_UI = (() => {
       <h2>${L.name}</h2><p>${L.brief}</p>
       <div class="proto"><span>Protocol</span><span>${L.protocol}</span></div>
       <details class="notes" id="notes"><summary>Field notes (free hint)</summary><p>${L.hint0}</p></details>`;
-    $('curUnit').textContent = `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
+    $('scopeLabel').textContent = L.panel === 'wall' ? 'Pseudo-ECG · electrode 2 cm beyond the epicardium' : 'Membrane potential · current clamp';
+    $('youLabel').textContent = L.panel === 'wall' ? 'Your wall' : 'Your cell';
+    $('curTitle').textContent = L.panel === 'wall' ? 'Inside the wall' : 'What each channel is doing';
+    $('curUnit').textContent = L.panel === 'wall'
+      ? 'Action potentials at three depths (mV), and membrane potential across the whole wall over time. Endocardium at the top.'
+      : `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
     $('rackSub').textContent = L.id === 'potassium'
       ? 'The channels are healthy and fixed. Slide to change the patient’s serum ion concentrations.'
       : 'Slide to change how many channels of each type the membrane carries (maximal conductance).';
@@ -1119,7 +1294,19 @@ const LENS_UI = (() => {
   // ---- simulate & score ----
   function schedule() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; run(); }); }
   function run() {
-    R = L.sim(p); ev = evaluate(L, R, T);
+    if (!T) return;
+    if (busy) { dirty = true; return; }
+    busy = true; dirty = false; setBusy(true, 'Simulating the wall…');
+    const g = gen, lv = L;
+    simulate(lv, Object.assign({}, p)).then(res => {
+      busy = false;
+      if (g !== gen) return;
+      apply(res);
+      if (dirty) run(); else setBusy(false);
+    }, err => { busy = false; setBusy(false); toast('Simulation failed: ' + err.message); });
+  }
+  function apply(res) {
+    R = res; Rlevel = L; ev = evaluate(L, R, T);
     S.params[L.id] = Object.assign({}, p);
     const cap = S.hinted[L.id] ? 2 : 3;
     const st = Math.min(starsFor(ev.score), cap);
@@ -1149,7 +1336,7 @@ const LENS_UI = (() => {
   function renderFeats() {
     $('ftb').innerHTML = ev.rows.map(r => {
       const f = F[r.k], c = r.score >= 85 ? 'good' : r.score >= 50 ? 'warn' : 'bad';
-      const tg = r.k === 'shape' ? '0' : fmt(r.target, f.d);
+      const tg = (r.k === 'shape' || r.k === 'shapeE') ? '0' : fmt(r.target, f.d);
       return `<tr><td>${f.label}${f.unit ? ` <span style="color:var(--muted)">(${f.unit})</span>` : ''}</td>
         <td class="num">${fmt(r.you, f.d)}</td><td class="num tg">${tg}</td>
         <td><div class="bar" title="${Math.round(r.score)}%"><i style="width:${r.score}%;background:var(--${c})"></i></div></td></tr>`;
@@ -1204,19 +1391,20 @@ const LENS_UI = (() => {
     }
     for (const [step, col] of [[v.yt / 4, 'grid-minor'], [v.yt, 'grid-major']]) {
       ctx.strokeStyle = css(col); ctx.beginPath();
-      for (let V = Math.ceil(v.y[0] / step) * step; V <= v.y[1] + 1e-9; V += step) { const y = Math.round(Y(V)) + .5; ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); }
+      for (let k = Math.ceil(v.y[0] / step - 1e-9); k * step <= v.y[1] + 1e-9; k++) { const y = Math.round(Y(k * step)) + .5; ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); }
       ctx.stroke();
     }
     // axes labels
     ctx.fillStyle = css('muted'); ctx.font = `11px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    for (let V = Math.ceil(v.y[0] / v.yt) * v.yt; V <= v.y[1]; V += v.yt) ctx.fillText(V, ml - 6, Y(V));
+    const yd = v.yt < 1 ? 1 : 0;
+    for (let k = Math.ceil(v.y[0] / v.yt - 1e-9); k * v.yt <= v.y[1] + 1e-9; k++) ctx.fillText((k * v.yt).toFixed(yd), ml - 6, Y(k * v.yt));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     const lbStep = (w < 480 && (v.x[1] - v.x[0]) / v.xt > 6) ? v.xt * 2 : v.xt;
     for (let t = v.x[0]; t <= v.x[1] + 1e-9; t += lbStep) {
       const last = t + lbStep > v.x[1] + 1e-9;
       ctx.textAlign = last ? 'right' : 'center'; ctx.fillText(last ? t + ' ms' : t, last ? w - mr : X(t), h - mb + 18);
     }
-    ctx.textAlign = 'left'; ctx.fillText('mV', 4, mt - 2 < 0 ? 0 : mt - 2);
+    ctx.textAlign = 'left'; ctx.fillText(v.yUnit || 'mV', 4, h - mb + 18);
     // 0 mV line
     ctx.strokeStyle = css('grid-major'); ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ml, Y(0) + .5); ctx.lineTo(w - mr, Y(0) + .5); ctx.stroke(); ctx.setLineDash([]);
     // stimulus strip
@@ -1236,7 +1424,49 @@ const LENS_UI = (() => {
     line(R.t, R.V, 'you', 2);
     ctx.restore();
   }
+  const hex = c => { c = c.replace('#', ''); if (c.length === 3) c = c.split('').map(x => x + x).join(''); const n = parseInt(c, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  function drawWall() {
+    const cv = $('ci'); const { ctx, w, h } = setupCanvas(cv, 330);
+    const v = L.view, ml = 64, mr = 10, apT = 6, apH = 150, mapT = apT + apH + 26, mapH = h - mapT - 22;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    const Y = V => apT + (50 - V) / 145 * apH;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.beginPath();
+    for (const V of [40, 0, -40, -80]) { ctx.moveTo(ml, Math.round(Y(V)) + .5); ctx.lineTo(w - mr, Math.round(Y(V)) + .5); }
+    ctx.stroke();
+    ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const V of [40, 0, -40, -80]) ctx.fillText(V, ml - 6, Y(V));
+    const layers = [['Endo', 'l-endo'], ['Mid', 'l-mid'], ['Epi', 'l-epi']];
+    layers.forEach(([nm, col], r) => {
+      const V = R.aps[r]; ctx.strokeStyle = css(col); ctx.lineWidth = 1.8; ctx.beginPath();
+      for (let i = 0; i < V.length; i++) { const x = X(R.t[i]), y = Y(V[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+      ctx.fillStyle = css(col); ctx.font = `700 12px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(nm, 4, apT + 4 + r * 16);
+    });
+    // depth–time map
+    const off = document.createElement('canvas'); off.width = R.nm; off.height = R.nx;
+    const octx = off.getContext('2d'), img = octx.createImageData(R.nm, R.nx);
+    const c0 = hex(css('panel')), c1 = hex(css('accent'));
+    for (let k = 0; k < R.nm; k++) for (let i = 0; i < R.nx; i++) {
+      const u = Math.max(0, Math.min(1, (R.map[k * R.nx + i] + 82) / 55)), o = (i * R.nm + k) * 4;
+      img.data[o] = c0[0] + (c1[0] - c0[0]) * u; img.data[o + 1] = c0[1] + (c1[1] - c0[1]) * u; img.data[o + 2] = c0[2] + (c1[2] - c0[2]) * u; img.data[o + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    const x0 = X(0), x1 = X(R.nm * R.mapDt);
+    ctx.imageSmoothingEnabled = true; ctx.drawImage(off, x0, mapT, x1 - x0, mapH);
+    ctx.strokeStyle = css('line'); ctx.strokeRect(x0 + .5, mapT + .5, x1 - x0 - 1, mapH - 1);
+    // layer boundaries and labels
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = css('muted'); ctx.beginPath();
+    for (const f of [0.25, 0.6]) { const y = Math.round(mapT + f * mapH) + .5; ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = `700 11px ${css('f-body')}`;
+    [['Endo', 'l-endo', 0.125], ['Mid', 'l-mid', 0.425], ['Epi', 'l-epi', 0.8]].forEach(([nm, col, f]) => { ctx.fillStyle = css(col); ctx.fillText(nm, ml - 8, mapT + f * mapH); });
+    ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('depth ↓   colour: membrane potential (rest → depolarised)', x0, mapT + mapH + 5);
+    ctx.textAlign = 'right'; ctx.fillText(v.x[1] + ' ms', w - mr, mapT + mapH + 5);
+  }
   function drawCurrents() {
+    if (L.panel === 'wall') return drawWall();
     const cv = $('ci'), names = L.currents, sh = 44;
     const { ctx, w, h } = setupCanvas(cv, names.length * sh + 4);
     const v = L.view, ml = 112, mr = 10;
@@ -1262,41 +1492,51 @@ const LENS_UI = (() => {
   }
 
   // ---- assistant ----
-  function assist() {
-    const btn = $('hint'); btn.disabled = true; btn.textContent = 'Testing channels…';
-    setTimeout(() => {
-      const base = ev.score; let best = null;
-      for (const t of L.tools) for (const f of [1.3, 2, 4, 1 / 1.3, 0.5, 0.25]) {
-        let v = p[t.k] * f;
-        if (t.lin) { const fr = { 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06; v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
-        v = Math.min(t.max, Math.max(t.min, v)); if (Math.abs(v - p[t.k]) < 1e-12) continue;
-        const q = Object.assign({}, p, { [t.k]: v }); const e = evaluate(L, L.sim(q), T);
-        // prefer the gentler step unless a bigger one is clearly better
-        if (!best || e.score > best.e.score + 1) best = { t, up: v > p[t.k], e, f: v / p[t.k] };
-      }
-      S.hinted[L.id] = true; save();
-      const box = $('assist'); box.hidden = false;
-      if (!best || best.e.score - base < 0.5) {
-        box.innerHTML = `No single small change helps right now. You may be in a local optimum: try a larger move on one channel and then re-balance the others. Check which feature bars are still red.`;
-      } else {
-        let gain = null; best.e.rows.forEach((r, i) => { const d = r.score - ev.rows[i].score; if (!gain || d > gain.d) gain = { d, k: r.k }; });
-        box.innerHTML = `<b>${best.up ? 'Raise' : 'Lower'} ${best.t.name}</b> <span style="color:var(--muted)">(${best.t.gene})</span>. ${(() => { const r = best.f >= 1 ? best.f : 1 / best.f; return r > 3 ? 'A big change (about ' + r.toFixed(0) + '×)' : r > 1.6 ? 'Roughly ' + (best.up ? 'doubling' : 'halving') + ' it' : 'A small nudge (about 30%)'; })()} alone takes the match from ${Math.floor(base)}% to ${Math.floor(best.e.score)}%, mostly by improving <i>${F[gain.k].label.toLowerCase()}</i>.`;
-      }
-      btn.disabled = false; btn.textContent = 'Ask the lab assistant'; renderScore();
-    }, 30);
+  async function assist() {
+    const btn = $('hint'); if (!ev) return; btn.disabled = true; btn.textContent = 'Testing channels…';
+    await new Promise(r => setTimeout(r, 30));
+    const g = gen, base = ev.score, rows0 = ev.rows; let best = null;
+    const steps = L.async ? [1.5, 1 / 1.5] : [1.3, 2, 4, 1 / 1.3, 0.5, 0.25];
+    const total = L.tools.length * steps.length; let n = 0;
+    for (const t of L.tools) for (const f of steps) {
+      let v = p[t.k] * f;
+      if (t.lin) { const fr = { 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06; v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
+      v = Math.min(t.max, Math.max(t.min, v)); n++;
+      if (Math.abs(v - p[t.k]) < 1e-12) continue;
+      if (L.async) btn.textContent = `Testing ${n} of ${total}…`;
+      const e = evaluate(L, await simulate(L, Object.assign({}, p, { [t.k]: v })), T);
+      if (g !== gen) { btn.disabled = false; btn.textContent = 'Ask the lab assistant'; return; }
+      // prefer the gentler step unless a bigger one is clearly better
+      if (!best || e.score > best.e.score + 1) best = { t, up: v > p[t.k], e, f: v / p[t.k] };
+    }
+    S.hinted[L.id] = true; save();
+    const box = $('assist'); box.hidden = false;
+    if (!best || best.e.score - base < 0.5) {
+      box.innerHTML = `No single small change helps right now. You may be in a local optimum: try a larger move on one channel and then re-balance the others. Check which feature bars are still red.`;
+    } else {
+      let gain = null; best.e.rows.forEach((r, i) => { const d = r.score - rows0[i].score; if (!gain || d > gain.d) gain = { d, k: r.k }; });
+      const r = best.f >= 1 ? best.f : 1 / best.f;
+      const size = r > 3 ? 'A big change (about ' + r.toFixed(0) + '×)' : r > 1.6 ? 'Roughly ' + (best.up ? 'doubling' : 'halving') + ' it' : 'A moderate change (about ' + Math.round((r - 1) * 100) + '%)';
+      box.innerHTML = `<b>${best.up ? 'Raise' : 'Lower'} ${best.t.name}</b> <span style="color:var(--muted)">(${best.t.gene})</span>. ${size} alone takes the match from ${Math.floor(base)}% to ${Math.floor(best.e.score)}%, mostly by improving <i>${F[gain.k].label.toLowerCase()}</i>.`;
+    }
+    btn.disabled = false; btn.textContent = 'Ask the lab assistant'; renderScore();
   }
 
   // ---- level loading ----
-  function loadLevel(i) {
-    idx = i; L = LEVELS[i]; S.last = i; save();
+  async function loadLevel(i) {
+    const g = ++gen; idx = i; L = LEVELS[i]; S.last = i; save();
     p = Object.assign({}, S.params[L.id] || L.start);
-    T = L.sim(L.target);
-    let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
-    Tdisp = noisy(T.V, span * 0.004 + 0.15);
-    curScale = {};
-    R = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); }
+    T = null; busy = false; dirty = false;
     $('assist').hidden = true; $('debrief').dataset.state = '';
-    renderLevels(); renderBrief(); renderTools(); run();
+    renderLevels(); renderBrief(); renderTools();
+    setBusy(true, 'Recording the target…');
+    const Tn = await simulate(L, L.target); if (g !== gen) return;
+    T = Tn;
+    let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
+    Tdisp = noisy(T.V, span * 0.004 + (L.noise ?? 0.15));
+    curScale = {};
+    if (!L.async) { const R0 = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R0.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); } }
+    run();
   }
 
   // ---- misc ----
@@ -1311,7 +1551,7 @@ const LENS_UI = (() => {
     if (this.dataset.armed) { S = blank(); save(); this.textContent = 'Reset all progress'; delete this.dataset.armed; loadLevel(0); toast('Progress cleared'); }
     else { this.dataset.armed = '1'; this.textContent = 'Click again to erase all stars'; setTimeout(() => { delete this.dataset.armed; this.textContent = 'Reset all progress'; }, 4000); }
   };
-  const redraw = () => { if (R) { drawScope(); drawCurrents(); } };
+  const redraw = () => { if (R && T && Rlevel === L) { drawScope(); drawCurrents(); } };
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(redraw, 80); });
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw); } catch (e) {}
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });

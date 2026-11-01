@@ -17,8 +17,9 @@ Everything runs client-side in a single HTML file with no dependencies.
 | 5 | Mid-myocardial M cell | same | same (lesson: parameter degeneracy) |
 | 6 | Mystery patient: long QT | same | same (Timothy syndrome, Cav1.2 gain of function) |
 | 7 | Electrolyte emergency | same | extracellular K⁺, Na⁺, Ca²⁺ (hyperkalaemia) |
+| 8 | The T wave | 60 TNNP cells in a 1.2 cm transmural strand + pseudo-ECG (Gima & Rudy 2002) | Cx43 coupling, IKs per layer (endo/mid/epi), epicardial Ito, hERG |
 
-Scoring compares electrophysiological features (resting potential, overshoot, max dV/dt, notch depth, APD50/90, spike count, adaptation, burst latency…) plus waveform RMS error. Stars at 70 / 85 / 95 %.
+Scoring compares electrophysiological features (resting potential, overshoot, max dV/dt, notch depth, APD50/90, spike count, adaptation, burst latency; QRS width, T amplitude, QT and Tpeak–Tend for the ECG level) plus waveform RMS error. Stars at 70 / 85 / 95 %.
 
 ## Magnifying lens
 
@@ -29,7 +30,7 @@ Scoring compares electrophysiological features (resting potential, overshoot, ma
 ## Layout
 
 ```
-src/models.js   ionic models (HH 1952, Pospischil 2008, TNNP 2004), Rush–Larsen + forward Euler
+src/models.js   ionic models (HH 1952, Pospischil 2008, TNNP 2004), 1D cable + pseudo-ECG; Rush–Larsen + forward Euler
 src/core.js     levels, feature extraction, scoring, lens metadata
 src/lens.js     slow-motion membrane view
 src/app.js      game UI
@@ -59,6 +60,7 @@ Every push to `main` runs the tests, builds the page and deploys it to GitHub Pa
 - Cardiac levels hold intracellular Na⁺ and K⁺ at their 1 Hz steady state and score the second paced beat, which keeps each simulation at ~35 ms so the sliders stay interactive. The lens run lets Na⁺/K⁺ evolve over that beat.
 - Timothy syndrome is approximated as 1.8× L-type conductance; the real G406R mutation mainly removes voltage-dependent inactivation.
 - Targets are model simulations with added noise, not experimental recordings.
+- The T-wave level uses epicardial GKs = 0.392 nS/pF (the ten Tusscher & Panfilov 2006 value) and D = 0.0007 cm²/ms (about 46 cm/s transmural conduction). With the 2004 model's uniform IKs, realistic conduction gives an inverted T wave. Tissue runs take about 0.7 s and happen in a Web Worker.
 
 ## License
 

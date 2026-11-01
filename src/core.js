@@ -58,6 +58,16 @@ const CORE = (() => {
       apd50: spiked ? apd(0.5) : 0, apd90: spiked ? apd(0.9) : 0 };
   }
 
+  function ecgFeatures(R) {
+    const e = R.ecg, t = R.t, n = e.length;
+    let qi = 0; for (let i = 0; i < n && t[i] < 80; i++) if (Math.abs(e[i]) > Math.abs(e[qi])) qi = i;
+    const qa = e[qi]; let q0 = -1, q1 = -1;
+    for (let i = 0; i < n && t[i] < 150; i++) if (Math.abs(e[i]) > 0.1 * Math.abs(qa)) { if (q0 < 0) q0 = i; q1 = i; }
+    let ti = -1; for (let i = 0; i < n; i++) if (t[i] > t[q1] + 60 && (ti < 0 || Math.abs(e[i]) > Math.abs(e[ti]))) ti = i;
+    let te = ti; for (let i = ti; i < n; i++) if (Math.abs(e[i]) > 0.1 * Math.abs(e[ti])) te = i;
+    return { qrsAmp: qa, qrsDur: t[q1] - t[q0], tAmp: e[ti], tPeak: t[ti] - t[q0], qt: t[te] - t[q0], tpte: t[te] - t[ti] };
+  }
+
   // ---------- feature metadata ----------
   const F = {
     rest: { label: 'Resting potential', unit: 'mV', d: 1 },
@@ -78,6 +88,13 @@ const CORE = (() => {
     apd50: { label: 'APD50', unit: 'ms', d: 0 },
     apd90: { label: 'APD90', unit: 'ms', d: 0 },
     shape: { label: 'Waveform RMS error', unit: 'mV', d: 1 },
+    qrsAmp: { label: 'QRS amplitude', unit: 'norm.', d: 2 },
+    qrsDur: { label: 'QRS duration', unit: 'ms', d: 0 },
+    tAmp: { label: 'T-wave amplitude', unit: 'norm.', d: 3 },
+    tPeak: { label: 'QRS onset to T peak', unit: 'ms', d: 0 },
+    qt: { label: 'QT interval', unit: 'ms', d: 0 },
+    tpte: { label: 'T peak to T end', unit: 'ms', d: 0 },
+    shapeE: { label: 'ECG RMS error', unit: 'norm.', d: 3 },
   };
 
   // ---------- levels ----------
@@ -195,6 +212,27 @@ const CORE = (() => {
       hint0: 'Look at the resting potential first. Which ion\'s Nernst potential sets it? The kidneys excrete that ion.',
       debrief: 'Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells.',
     },
+    {
+      id: 'twave', name: 'The T wave', who: 'Human LV wall · 1.2 cm transmural strand · 1 Hz', ref: 'Gima & Rudy 2002; ten Tusscher et al. 2004/2006',
+      brief: 'The ECG is not the voltage of any one cell. It is the electric field of a whole wall of cells, activating and recovering at slightly different times. This is a 1.2 cm strip of left-ventricular wall, stimulated on the endocardial side and recorded by an electrode 2 cm beyond the epicardium. Right now every layer is the same, so the QRS is too narrow and the T wave points the wrong way. Give the wall its real layers.',
+      protocol: 'Endocardial stimulus at t = 0; single cells pre-paced at 1 Hz; pseudo-ECG scaled so the reference QRS = 1', units: { cur: 'pA/pF' },
+      tools: [
+        { k: 'D', name: 'Gap junctions', gene: 'Cx43 · GJA1 (coupling D)', cur: 'INa', unit: 'cm²/s', scale: 1000, min: 0.0002, max: 0.003, col: 'c-gj' },
+        { k: 'GKsEndo', name: 'Endocardium: slow K⁺', gene: 'KCNQ1 · inner 25 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-endo' },
+        { k: 'GKsM', name: 'Midwall: slow K⁺', gene: 'KCNQ1 · middle 35 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-mid' },
+        { k: 'GKsEpi', name: 'Epicardium: slow K⁺', gene: 'KCNQ1 · outer 40 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-epi' },
+        { k: 'GtoEpi', name: 'Epicardium: transient out', gene: 'Kv4.3 · KCND3', cur: 'Ito', unit: 'nS/pF', min: 0.01, max: 1.2, col: 'c-to' },
+        { k: 'GKr', name: 'Whole wall: hERG', gene: 'Kv11.1 · KCNH2', cur: 'IKr', unit: 'nS/pF', min: 0.01, max: 0.4, col: 'c-kr' },
+      ],
+      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWall', noise: 0.004,
+      target: { D: 0.0007, GKsEndo: 0.245, GKsM: 0.062, GKsEpi: 0.392, GtoEpi: 0.294, GKr: 0.096 },
+      start: { D: 0.0016, GKsEndo: 0.245, GKsM: 0.245, GKsEpi: 0.245, GtoEpi: 0.294, GKr: 0.096 },
+      sim: p => M.tnnpWall(p), feats: ecgFeatures,
+      tol: { qrsAmp: 0.06, qrsDur: 3, tAmp: 0.04, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.04 },
+      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
+      hint0: 'QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.',
+      debrief: 'The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart\'s geometry and on the torso, which needs whole-heart models.',
+    },
   ];
   for (const L of LEVELS) {
     if (L.model === undefined && L.tools === CARD_TOOLS) {
@@ -248,6 +286,11 @@ const CORE = (() => {
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
       note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
     epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
+    twave: Object.assign({}, CARD_LENS, {
+      sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      note: 'This is one epicardial cell with your wall\'s channel densities, uncoupled from its neighbours, so you can watch the K⁺ currents that end its action potential early. In the wall, coupling to the longer-lasting midwall cells pulls its repolarisation a little later. ' + CARD_LENS.note,
+    }),
   };
   for (const L of LEVELS) { L.lens = LENS[L.id]; if (!L.lens.sim) L.lens = Object.assign({}, L.lens, { sim: L.sim }); }
 
@@ -255,7 +298,7 @@ const CORE = (() => {
   function rms(a, b) { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s / n); }
   function evaluate(L, R, T) {
     const f = L.feats(R), ft = L.feats(T);
-    if ('shape' in L.tol) { f.shape = rms(R.V, T.V); ft.shape = 0; }
+    for (const sk of ['shape', 'shapeE']) if (sk in L.tol) { f[sk] = rms(R.V, T.V); ft[sk] = 0; }
     const rows = []; let tot = 0, n = 0;
     for (const k of Object.keys(L.tol)) {
       const d = (f[k] - ft[k]) / L.tol[k];
