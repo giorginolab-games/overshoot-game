@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+
+## [0.5.0] - 2026-11-01
 ### Added
 - Version shown in the footer, stamped at build time; `CHANGELOG.md`; `npm version` release flow.
 - Level 9: the hERG paradox. A multichannel drug (hERG fixed at 40 %, find the Cav1.2 block) shows why hERG block alone does not predict QT prolongation (CiPA).
