@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head><body>
+<title>Excitable Cell Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an electrophysiology rig. ECG-paper scope on the left, channel rack and scorecard on the right; level strip across the top. */
+:root {
+  --paper: #fcf7f5; --panel: #ffffff; --ink: #1e1a24; --muted: #6c6371; --line: #ecdfdb;
+  --grid-minor: rgba(205, 70, 80, .10); --grid-major: rgba(205, 70, 80, .26);
+  --accent: #b8233a; --accent-ink: #ffffff; --you: #2340b8; --target: #8d8392;
+  --gold: #d48f00; --good: #2b8a3e; --warn: #c77700; --bad: #c92a2a;
+  --c-na: #e8590c; --c-ca: #2b8a3e; --c-to: #c2255c; --c-kr: #6741d9; --c-ks: #1971c2;
+  --c-k1: #0c7480; --c-lk: #868e96; --c-ncx: #a07000; --c-pump: #74695f;
+  --ion-na: #e8590c; --ion-k: #3b5bdb; --ion-ca: #2f9e44; --ion-lk: #868e96;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
+  --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
+  --accent: #ff6b81; --accent-ink: #1a0d11; --you: #86a8ff; --target: #9e93a3;
+  --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
+  --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
+  --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
+  --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
+  --accent: #ff6b81; --accent-ink: #1a0d11; --you: #86a8ff; --target: #9e93a3;
+  --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
+  --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
+  --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand h1 { font-size: clamp(28px, 4.2vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1; display: flex; align-items: center; gap: 10px; }
+.brand h1 svg { width: 1.6em; height: .9em; flex: none; }
+.brand p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.tally { font-family: var(--f-mono); font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.tally b { font-size: 20px; color: var(--ink); font-weight: 600; }
+.tally .st { color: var(--gold); font-size: 20px; }
+
+/* level strip */
+.levels { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.lv { flex: none; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--r); padding: 8px 12px; cursor: pointer; min-width: 150px; }
+.lv .n { grid-row: span 2; font-family: var(--f-mono); font-size: 13px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); }
+.lv .t { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.lv .s { font-size: 12px; letter-spacing: .1em; color: var(--line); }
+.lv .s .on { color: var(--gold); }
+.lv[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.lv[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.lv.locked { opacity: .5; cursor: not-allowed; }
+.lv.locked .s { color: var(--muted); letter-spacing: 0; }
+
+/* main grid */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+@media (max-width: 960px) { .main { grid-template-columns: minmax(0, 1fr); } .main > .col { display: contents; }
+  #brief { order: 1; } .scope { order: 2; } .scorecard { order: 3; } .rack { order: 4; } .feats { order: 5; } #debrief { order: 6; } }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.brief h2 { font-size: 26px; font-weight: 700; margin: 4px 0 8px; letter-spacing: -.01em; }
+.brief p { margin: 0 0 10px; max-width: 70ch; }
+.proto { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.proto span:first-child { color: var(--accent); }
+details.notes { margin-top: 8px; }
+details.notes summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: 14px; }
+details.notes p { margin: 6px 0 0; color: var(--ink); }
+
+/* scope */
+.scope { padding: 12px 12px 10px; }
+.scope-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 6px 8px; }
+.legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2.5px solid var(--you); vertical-align: middle; margin-right: 6px; }
+.legend i.tg { border-top: 2.5px dashed var(--target); }
+canvas { display: block; width: 100%; }
+#cv { height: 330px; }
+@media (max-width: 560px) { #cv { height: 250px; } }
+.cur-head { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 6px 4px; gap: 10px; flex-wrap: wrap; }
+.cur-head h3 { font-size: 15px; font-weight: 700; }
+.cur-head span { font-size: 12.5px; color: var(--muted); }
+
+/* score */
+.score { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; align-items: center; }
+.score .big { font-family: var(--f-display); font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.score .big small { font-size: 22px; font-weight: 700; color: var(--muted); }
+.stars { font-size: 28px; letter-spacing: 2px; color: var(--line); line-height: 1; }
+.stars .on { color: var(--gold); }
+.stars .cap { color: var(--muted); font-size: 12px; letter-spacing: 0; display: block; margin-top: 4px; font-family: var(--f-body); }
+.meter { grid-column: 1 / -1; position: relative; height: 10px; background: var(--line); border-radius: 5px; margin-top: 10px; overflow: visible; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 5px; transition: width .15s; }
+.meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--panel); }
+.meter .tick::after { content: attr(data-l); position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--gold); font-family: var(--f-mono); white-space: nowrap; }
+.bestline { grid-column: 1 / -1; margin-top: 16px; font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+
+/* rack */
+.rack h3, .feats h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.rack .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+.tool { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; border-top: 1px solid var(--line); align-items: center; }
+.tool:first-of-type { border-top: 0; }
+.tool .sw { width: 12px; height: 12px; border-radius: 3px; }
+.tool .nm { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.tool .gn { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+.tool .val { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tool .val small { color: var(--muted); font-size: 10.5px; display: block; }
+.tool input[type=range] { grid-column: 2 / -1; width: 100%; margin: 6px 0 0; accent-color: var(--tc, var(--accent)); height: 22px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 700; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn[disabled] { opacity: .5; cursor: progress; }
+.assist { margin-top: 10px; font-size: 14px; border-left: 3px solid var(--accent); padding: 6px 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 0 6px 6px 0; }
+.assist[hidden] { display: none; }
+.capnote { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* features */
+.ft { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ft th { text-align: left; font-weight: 400; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 4px 0; }
+.ft td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.ft td.num { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; padding-left: 8px; white-space: nowrap; }
+.ft td.tg { color: var(--muted); }
+.ft .bar { width: 46px; height: 6px; border-radius: 3px; background: var(--line); position: relative; margin-left: 10px; }
+.ft .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+
+/* debrief */
+.debrief h3 { font-size: 20px; font-weight: 700; margin: 4px 0 8px; }
+.debrief p { max-width: 72ch; margin: 0 0 12px; }
+.debrief .locked { color: var(--muted); }
+.cmp { border-collapse: collapse; font-size: 13px; font-family: var(--f-mono); margin: 4px 0 14px; }
+.cmp th, .cmp td { padding: 4px 14px 4px 0; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cmp th:first-child, .cmp td:first-child { text-align: left; font-family: var(--f-body); }
+.cmp th { font-weight: 400; color: var(--muted); font-family: var(--f-body); font-size: 12px; }
+.tscroll { overflow-x: auto; }
+
+.foot { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: 90ch; }
+.foot button { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 13px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper);
+  padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast .st { color: var(--gold); }
+
+/* lens */
+.lensbtn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--accent); color: var(--accent); background: var(--panel); border-radius: 999px; padding: 5px 12px 5px 9px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.lensbtn:hover { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.lensbtn svg { width: 16px; height: 16px; }
+.lens { position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: color-mix(in srgb, var(--ink) 55%, transparent);
+  padding-top: max(16px, env(safe-area-inset-top, 0px)); padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.lens-box { max-width: 1040px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.lens-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.lens-head h2 { font-size: 24px; font-weight: 700; }
+.lens-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+.xbtn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 36px; height: 36px; border-radius: 50%; font-size: 20px; line-height: 1; cursor: pointer; flex: none; }
+.lens-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 12.5px var(--f-mono); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.lens-ctrl label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.lens-read { margin-left: auto; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+#lm { height: 330px; border-radius: 10px; border: 1px solid var(--line); }
+@media (max-width: 560px) { #lm { height: 300px; } .lens-box { padding: 14px 12px; } .lens-read { margin-left: 0; width: 100%; } }
+#lv { height: 90px; cursor: ew-resize; touch-action: none; }
+#lc { cursor: ew-resize; touch-action: none; }
+.lens-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.lens-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.lens-scale { font: 12.5px var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.lens-scale b { font-weight: 600; color: var(--accent); }
+.lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
+@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1><svg viewBox="0 0 64 36" aria-hidden="true"><path d="M2 28 H16 L20 4 L24 30 L30 22 Q44 22 48 28 H62" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Excitable</h1>
+      <p>Each level shows a target recording. Tune the density of each ion channel until your cell produces the same action potential.</p>
+    </div>
+    <div class="tally" aria-live="polite"><span class="st">★</span><b id="tally">0</b><span id="tallyOf">/ 21 stars</span></div>
+  </header>
+
+  <nav class="levels" id="levels" aria-label="Levels"></nav>
+
+  <div class="main">
+    <div class="col">
+      <section class="card brief" id="brief"></section>
+      <section class="card scope">
+        <div class="scope-head">
+          <span class="eyebrow">Membrane potential · current clamp</span>
+          <button class="lensbtn" id="lensOpen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15 L21 21" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M6.5 10.5 h2 l1-2.5 1.2 5 1-2.5 h1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Magnifying lens</button>
+          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i>Your cell</span></div>
+        </div>
+        <canvas id="cv" aria-label="Membrane potential: target recording and your simulated cell"></canvas>
+        <div class="cur-head"><h3>What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
+        <canvas id="ci" aria-label="Ionic currents in your simulated cell"></canvas>
+      </section>
+      <section class="card debrief" id="debrief"></section>
+    </div>
+
+    <div class="col">
+      <section class="card scorecard">
+        <div class="score">
+          <div class="big" id="pct">0<small>%</small></div>
+          <div><div class="eyebrow">Match</div><div class="stars" id="stars"></div></div>
+          <div class="meter"><div class="fill" id="fill"></div></div>
+          <div class="bestline" id="bestline"></div>
+        </div>
+      </section>
+      <section class="card rack">
+        <h3>Channel rack</h3>
+        <p class="sub" id="rackSub">Slide to change how many channels of each type the membrane carries.</p>
+        <div id="tools"></div>
+        <div class="btns">
+          <button class="btn" id="reset" type="button">Reset level</button>
+          <button class="btn primary" id="hint" type="button">Ask the lab assistant</button>
+        </div>
+        <div class="capnote" id="capnote">The assistant tests every channel for you. Using it caps this level at ★★.</div>
+        <div class="assist" id="assist" hidden></div>
+      </section>
+      <section class="card feats">
+        <h3>Measured features</h3>
+        <div class="tscroll"><table class="ft"><thead><tr><th>Feature</th><th style="text-align:right">You</th><th style="text-align:right">Target</th><th></th></tr></thead><tbody id="ftb"></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
+    <div>Progress is saved in this browser. <button id="unlockAll" type="button">Unlock all levels</button> · <button id="wipe" type="button">Reset all progress</button></div>
+  </footer>
+</div>
+<div class="lens" id="lens" hidden role="dialog" aria-modal="true" aria-labelledby="lensTitle">
+  <div class="lens-box">
+    <div class="lens-head">
+      <div><div class="eyebrow">Under the lens · your cell, slow motion</div><h2 id="lensTitle">Membrane</h2>
+        <p>Ion flow at its true rate, slowed down. Each dot stands for a fixed number of ions, so the dots that cross add up to the real number of ions moved (|I| ÷ ze). The pore opens with the channel's open probability (Po).</p></div>
+      <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
+    </div>
+    <div class="lens-ctrl">
+      <button class="btn primary" id="lensPlay" type="button">Pause</button>
+      <button class="btn" id="lensRestart" type="button">Restart</button>
+      <span id="lensSpeeds" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Playback speed"></span>
+      <span id="lensDens" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Ions per dot"></span>
+      <label><input type="checkbox" id="lensAuto" checked> Slow down on fast events</label>
+      <span class="lens-read" id="lensRead"></span>
+    </div>
+    <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
+    <div class="lens-legend">
+      <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
+      <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
+      <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
+    </div>
+    <div class="lens-scale" id="lensScale"></div>
+    <canvas id="lv" aria-label="Membrane potential with playhead. Drag to scrub."></canvas>
+    <h3>Ion concentrations over time</h3>
+    <canvas id="lc" aria-label="Ion concentrations over time with playhead. Drag to scrub."></canvas>
+    <p class="note" id="lensNote"></p>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ===== Ionic models =====================================================
+// All models: simulate(p) -> { t:Float64Array, V:Float64Array, I:{name:Float64Array}, stim:Float64Array }
+// sampled every `out` ms.
+
+const MODELS = (() => {
+  const exp = Math.exp, sqrt = Math.sqrt, log = Math.log;
+
+  // safe x/(1-exp(-x/k)) style helper: a*(x)/(1-exp(-x/k))
+  function vtrap(x, k) { // x / (1 - exp(-x/k))
+    return Math.abs(x / k) < 1e-6 ? k * (1 + x / k / 2) : x / (1 - exp(-x / k));
+  }
+
+  // ---------------- Hodgkin–Huxley 1952 (squid axon, 6.3 °C) -------------
+  function hh(p) {
+    const gNa = p.gNa, gK = p.gK, gL = p.gL;
+    const ENa = 50, EK = -77, EL = -54.4;
+    const dt = 0.005, T = 20, out = 0.025;
+    let V = -65, m = 0.0529, h = 0.596, n = 0.3177;
+    // relax gates to rest for given V (rest depends a bit on params) – settle 50 ms with no stim
+    const N = Math.round(T / out);
+    const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N),
+      I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) } };
+    const total = 50 + T; let k = 0;
+    for (let s = 0, ns = Math.round(total / dt); s < ns; s++) {
+      const t = s * dt - 50;
+      const am = 0.1 * vtrap(V + 40, 10), bm = 4 * exp(-(V + 65) / 18);
+      const ah = 0.07 * exp(-(V + 65) / 20), bh = 1 / (1 + exp(-(V + 35) / 10));
+      const an = 0.01 * vtrap(V + 55, 10), bn = 0.125 * exp(-(V + 65) / 80);
+      const INa = gNa * m * m * m * h * (V - ENa), IK = gK * n * n * n * n * (V - EK), IL = gL * (V - EL);
+      const Ist = (t >= 2 && t < 2.5) ? 20 : 0;
+      if (t >= 0 && k < N && Math.abs(t - k * out) < dt / 2) {
+        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+      }
+      V += dt * (Ist - INa - IK - IL);
+      let tau, inf;
+      tau = 1 / (am + bm); inf = am * tau; m = inf + (m - inf) * exp(-dt / tau);
+      tau = 1 / (ah + bh); inf = ah * tau; h = inf + (h - inf) * exp(-dt / tau);
+      tau = 1 / (an + bn); inf = an * tau; n = inf + (n - inf) * exp(-dt / tau);
+    }
+    return R;
+  }
+
+  // ------------- Pospischil et al. 2008 minimal cortical/thalamic models ----
+  // INa, IKd (Traub-Miles), IM (Kv7, slow K), IT (Cav3, low-threshold Ca), leak.
+  // Units: mS/cm², µA/cm², mV, ms.
+  function cortical(p, protocol) {
+    const gNa = p.gNa, gKd = p.gKd, gM = p.gM || 0, gT = p.gT || 0, gL = p.gL;
+    const EL = protocol.EL, VT = protocol.VT, ENa = 50, EK = -90, ECa = 120, Vx = protocol.Vx || 0;
+    const tauMax = protocol.tauMax || 600;
+    const dt = 0.01, out = protocol.out || 0.2, T = protocol.T;
+    const pre = 300;
+    let V = EL, m = 0, h = 1, n = 0, pM = 0, u = 1;
+    const N = Math.round(T / out);
+    const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {} };
+    for (const c of protocol.currents) { R.I[c] = new Float64Array(N); R.O[c] = new Float64Array(N); }
+    let k = 0;
+    for (let s = 0, ns = Math.round((pre + T) / dt); s < ns; s++) {
+      const t = s * dt - pre;
+      const v1 = V - VT;
+      const am = 0.32 * vtrap(v1 - 13, 4), bm = 0.28 * vtrap(-(v1 - 40), 5);
+      const ah = 0.128 * exp(-(v1 - 17) / 18), bh = 4 / (1 + exp(-(v1 - 40) / 5));
+      const an = 0.032 * vtrap(v1 - 15, 5), bn = 0.5 * exp(-(v1 - 10) / 40);
+      const pinf = 1 / (1 + exp(-(V + 35) / 10)), taup = tauMax / (3.3 * exp((V + 35) / 20) + exp(-(V + 35) / 20));
+      const sinf = 1 / (1 + exp(-(V + Vx + 57) / 6.2)), uinf = 1 / (1 + exp((V + Vx + 81) / 4));
+      const tauu = (30.8 + (211.4 + exp((V + Vx + 113.2) / 5)) / (1 + exp((V + Vx + 84) / 3.2))) / 3.7;
+      const INa = gNa * m * m * m * h * (V - ENa), IKd = gKd * n * n * n * n * (V - EK);
+      const IM = gM * pM * (V - EK), IT = gT * sinf * sinf * u * (V - ECa), IL = gL * (V - EL);
+      const Ist = protocol.stim(t);
+      if (t >= 0 && k < N && Math.abs(t - k * out) < dt / 2) {
+        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist;
+        const all = { INa, IKd, IM, IT, IL };
+        const op = { INa: m * m * m * h, IKd: n * n * n * n, IM: pM, IT: sinf * sinf * u, IL: 1 };
+        for (const c of protocol.currents) { R.I[c][k] = all[c]; R.O[c][k] = op[c]; }
+        k++;
+      }
+      V += dt * (Ist - INa - IKd - IM - IT - IL);
+      let tau, inf;
+      tau = 1 / (am + bm); inf = am * tau; m = inf + (m - inf) * exp(-dt / tau);
+      tau = 1 / (ah + bh); inf = ah * tau; h = inf + (h - inf) * exp(-dt / tau);
+      tau = 1 / (an + bn); inf = an * tau; n = inf + (n - inf) * exp(-dt / tau);
+      pM = pinf + (pM - pinf) * exp(-dt / taup);
+      u = uinf + (u - uinf) * exp(-dt / tauu);
+    }
+    return R;
+  }
+
+  // ---------------- ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle) --
+  const C = { R: 8314.472, T: 310, F: 96485.3415, Cm: 0.185, Vc: 0.016404, Vsr: 0.001094,
+    pKNa: 0.03, GbNa: 0.00029, GbCa: 0.000592, GpCa: 0.825, KpCa: 0.0005, GpK: 0.0146,
+    PNaK: 1.362, KmK: 1, KmNa: 40, kNaCa: 1000, KmNai: 87.5, KmCa: 1.38, ksat: 0.1, alpha: 2.5, gamma: 0.35,
+    Bufc: 0.15, Kbufc: 0.001, Bufsr: 10, Kbufsr: 0.3, taufca: 2, taug: 2, Vmaxup: 0.000425, Kup: 0.00025,
+    arel: 0.016464, brel: 0.25, crel: 0.008232, Vleak: 0.00008 };
+  const RTF = C.R * C.T / C.F;
+
+  function tnnp(p, opts = {}) {
+    const GNa = p.GNa, GCaL = p.GCaL, Gto = p.Gto, GKr = p.GKr, GKs = p.GKs, GK1 = p.GK1;
+    const Ko = p.Ko ?? 5.4, Nao = p.Nao ?? 140, Cao = p.Cao ?? 2;
+    const epi = opts.cell !== 'endo';
+    const BCL = opts.BCL || 1000, beats = opts.beats || 3, out = opts.out || 1, T = opts.T || 600;
+    const st = Object.assign({ V: -86.2, Cai: 0.0002, Casr: 0.2, Nai: 11.6, Ki: 138.3, m: 0, h: 0.75, j: 0.75,
+      xr1: 0, xr2: 1, xs: 0, r: 0, s: 1, d: 0, f: 1, fCa: 1, g: 1 }, opts.init || {});
+    let { V, Cai, Casr, Nai, Ki, m, h, j, xr1, xr2, xs, r, s, d, f, fCa, g } = st;
+    const N = Math.round(T / out);
+    const names = ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1', 'INaCa', 'INaK'];
+    const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {}, C: {} };
+    for (const c of names) R.I[c] = new Float64Array(N);
+    for (const c of ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1']) R.O[c] = new Float64Array(N);
+    for (const c of ['Cai', 'Casr', 'Nai', 'Ki']) R.C[c] = new Float64Array(N);
+    const sqK = sqrt(Ko / 5.4);
+    let t = 0, k = 0, Vmax = -1e9, dVmax = 0; const tEnd = (beats - 1) * BCL + T, rec0 = (beats - 1) * BCL;
+    while (t < tEnd - 1e-9) {
+      const tb = t % BCL;
+      const dt = (tb < 12 || (opts.fine && tb < 40)) ? 0.01 : 0.05;
+      const ENa = RTF * log(Nao / Nai), EK = RTF * log(Ko / Ki);
+      const EKs = RTF * log((Ko + C.pKNa * Nao) / (Ki + C.pKNa * Nai)), ECa = 0.5 * RTF * log(Cao / Cai);
+      // currents
+      const INa = GNa * m * m * m * h * j * (V - ENa);
+      const VF = V * C.F, e2 = exp(2 * V / RTF);
+      let ICaL;
+      if (Math.abs(V) < 1e-4) ICaL = GCaL * d * f * fCa * 2 * C.F * (Cai - 0.341 * Cao);
+      else ICaL = GCaL * d * f * fCa * 4 * V * C.F / RTF * (Cai * e2 - 0.341 * Cao) / (e2 - 1);
+      const Ito = Gto * r * s * (V - EK);
+      const IKr = GKr * sqK * xr1 * xr2 * (V - EK);
+      const IKs = GKs * xs * xs * (V - EKs);
+      const aK1 = 0.1 / (1 + exp(0.06 * (V - EK - 200)));
+      const bK1 = (3 * exp(0.0002 * (V - EK + 100)) + exp(0.1 * (V - EK - 10))) / (1 + exp(-0.5 * (V - EK)));
+      const IK1 = GK1 * sqK * (aK1 / (aK1 + bK1)) * (V - EK);
+      const eg = exp(C.gamma * V / RTF), eg1 = exp((C.gamma - 1) * V / RTF);
+      const INaCa = C.kNaCa * (eg * Nai * Nai * Nai * Cao - eg1 * Nao * Nao * Nao * Cai * C.alpha) /
+        ((C.KmNai ** 3 + Nao ** 3) * (C.KmCa + Cao) * (1 + C.ksat * eg1));
+      const INaK = C.PNaK * Ko * Nai / ((Ko + C.KmK) * (Nai + C.KmNa) * (1 + 0.1245 * exp(-0.1 * V / RTF) + 0.0353 * exp(-V / RTF)));
+      const IpCa = C.GpCa * Cai / (C.KpCa + Cai);
+      const IpK = C.GpK * (V - EK) / (1 + exp((25 - V) / 5.98));
+      const IbNa = C.GbNa * (V - ENa), IbCa = C.GbCa * (V - ECa);
+      const Ist = (tb < 1) ? -52 : 0;
+      if (t >= rec0 - 1e-9 && k < N && t - rec0 >= k * out - 1e-9) {
+        R.t[k] = t - rec0; R.V[k] = V; R.stim[k] = Ist;
+        R.I.INa[k] = INa; R.I.ICaL[k] = ICaL; R.I.Ito[k] = Ito; R.I.IKr[k] = IKr; R.I.IKs[k] = IKs;
+        R.I.IK1[k] = IK1; R.I.INaCa[k] = INaCa; R.I.INaK[k] = INaK;
+        R.O.INa[k] = m * m * m * h * j; R.O.ICaL[k] = d * f * Math.min(fCa, 1); R.O.Ito[k] = r * s;
+        R.O.IKr[k] = xr1 * xr2; R.O.IKs[k] = xs * xs; R.O.IK1[k] = aK1 / (aK1 + bK1);
+        R.C.Cai[k] = Cai; R.C.Casr[k] = Casr; R.C.Nai[k] = Nai; R.C.Ki[k] = Ki; k++;
+      }
+      const Iion = INa + ICaL + Ito + IKr + IKs + IK1 + INaCa + INaK + IpCa + IpK + IbNa + IbCa;
+      if (t >= rec0 - 1e-9) { if (V > Vmax) Vmax = V; const dv = -(Iion + Ist); if (dv > dVmax) dVmax = dv; }
+      // Ca handling
+      const Ileak = C.Vleak * (Casr - Cai);
+      const Iup = C.Vmaxup / (1 + C.Kup * C.Kup / (Cai * Cai));
+      const Irel = (C.arel * Casr * Casr / (C.brel * C.brel + Casr * Casr) + C.crel) * d * g;
+      const bc = 1 / (1 + C.Bufc * C.Kbufc / ((Cai + C.Kbufc) ** 2));
+      const dCai = bc * (Ileak - Iup + Irel - (ICaL + IbCa + IpCa - 2 * INaCa) / (2 * C.Vc * C.F) * C.Cm);
+      const bsr = 1 / (1 + C.Bufsr * C.Kbufsr / ((Casr + C.Kbufsr) ** 2));
+      const dCasr = bsr * C.Vc / C.Vsr * (Iup - Irel - Ileak);
+      if (!opts.clampNaK) {
+        Nai += dt * (-(INa + IbNa + 3 * INaK + 3 * INaCa) * C.Cm / (C.Vc * C.F));
+        Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
+      }
+      // gates (Rush–Larsen)
+      const minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+      const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
+      const hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+      let ah, bh, aj, bj;
+      if (V < -40) {
+        ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
+        aj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23)));
+        bj = 0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
+      } else {
+        ah = 0; bh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1)));
+        aj = 0; bj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)));
+      }
+      m = minf + (m - minf) * exp(-dt / (am * bm));
+      h = hinf + (h - hinf) * exp(-dt * (ah + bh));
+      j = hinf + (j - hinf) * exp(-dt * (aj + bj));
+      const xr1inf = 1 / (1 + exp((-26 - V) / 7));
+      const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
+      xr1 = xr1inf + (xr1 - xr1inf) * exp(-dt / txr1);
+      const xr2inf = 1 / (1 + exp((V + 88) / 24));
+      const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
+      xr2 = xr2inf + (xr2 - xr2inf) * exp(-dt / txr2);
+      const xsinf = 1 / (1 + exp((-5 - V) / 14));
+      const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
+      xs = xsinf + (xs - xsinf) * exp(-dt / txs);
+      const rinf = 1 / (1 + exp((20 - V) / 6)), tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
+      r = rinf + (r - rinf) * exp(-dt / tr);
+      let sinf, ts;
+      if (epi) { sinf = 1 / (1 + exp((V + 20) / 5)); ts = 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3; }
+      else { sinf = 1 / (1 + exp((V + 28) / 5)); ts = 1000 * exp(-((V + 67) ** 2) / 1000) + 8; }
+      s = sinf + (s - sinf) * exp(-dt / ts);
+      const dinf = 1 / (1 + exp((-5 - V) / 7.5));
+      const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
+      d = dinf + (d - dinf) * exp(-dt / td);
+      const finf = 1 / (1 + exp((V + 20) / 7));
+      const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
+      f = finf + (f - finf) * exp(-dt / tf);
+      const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
+        0.2 / (1 + exp((Cai - 0.00075) / 0.0008)) + 0.23) / 1.46;
+      const fCan = fCainf + (fCa - fCainf) * exp(-dt / C.taufca);
+      if (!(fCainf > fCa && V > -60)) fCa = fCan;
+      const ginf = Cai <= 0.00035 ? 1 / (1 + (Cai / 0.00035) ** 6) : 1 / (1 + (Cai / 0.00035) ** 16);
+      const gn = ginf + (g - ginf) * exp(-dt / C.taug);
+      if (!(ginf > g && V > -60)) g = gn;
+      // concentrations & V
+      Cai += dt * dCai; Casr += dt * dCasr;
+      V += -dt * (Iion + Ist);
+      t += dt;
+    }
+    R.Vmax = Vmax; R.dVdtMax = dVmax;
+    R.state = { V, Cai, Casr, Nai, Ki, m, h, j, xr1, xr2, xs, r, s, d, f, fCa, g };
+    return R;
+  }
+
+  return { hh, cortical, tnnp };
+})();
+
+if (typeof module !== 'undefined') module.exports = MODELS;
+
+// ===== Levels, features, scoring =========================================
+const CORE = (() => {
+  const M = (typeof MODELS !== 'undefined') ? MODELS : require('./models.js');
+
+  // steady-state initial conditions for the human ventricular model (30 beats at 1 Hz, reference params)
+  const TNNP_SS = { V: -86.2797, Cai: 0.0000686316, Casr: 0.486161, Nai: 11.3013, Ki: 138.2946, m: 0.00137201,
+    h: 0.772508, j: 0.763843, xr1: 0.000673665, xr2: 0.482087, xs: 0.00300141, r: 2.029e-8, s: 0.999998,
+    d: 0.0000196526, f: 0.988952, fCa: 1.006066, g: 0.999943 };
+  const TNNP_REF = { GNa: 14.838, GCaL: 1.75e-4, Gto: 0.294, GKr: 0.096, GKs: 0.245, GK1: 5.405 };
+
+  function crossings(R, thr = 0, from = -Infinity, to = Infinity) {
+    const s = [], V = R.V, t = R.t;
+    for (let i = 1; i < V.length; i++) if (V[i - 1] < thr && V[i] >= thr && t[i] >= from && t[i] < to) s.push(t[i]);
+    return s;
+  }
+  const at = (R, time) => { const i = Math.min(R.V.length - 1, Math.max(0, Math.round(time / (R.t[1] - R.t[0])))); return R.V[i]; };
+
+  // ---------- feature extractors ----------
+  function hhFeatures(R) {
+    const V = R.V, t = R.t; let pk = -1e9, ip = 0;
+    for (let i = 0; i < V.length; i++) if (V[i] > pk) { pk = V[i]; ip = i; }
+    const rest = V[0]; let um = 1e9;
+    for (let i = ip; i < V.length; i++) if (V[i] < um) um = V[i];
+    const half = (pk + rest) / 2; let w = 0;
+    for (let i = 0; i < V.length; i++) if (V[i] > half) w += t[1] - t[0];
+    const spiked = pk > 0;
+    return { rest, peak: pk, under: spiked ? um : rest, width: spiked ? w : 0, ttp: spiked ? t[ip] - 2 : 0 };
+  }
+  function rsFeatures(R) {
+    const s = crossings(R, 0, 100, 600);
+    const isi = s.slice(1).map((x, i) => x - s[i]);
+    const adapt = isi.length >= 2 ? isi[isi.length - 1] / isi[0] : 1;
+    // spike peaks and troughs
+    let peaks = [], troughs = [];
+    for (let k = 0; k < s.length; k++) {
+      const a = s[k], b = k + 1 < s.length ? s[k + 1] : Math.min(a + 80, 600);
+      let pk = -1e9, tr = 1e9;
+      for (let i = 0; i < R.t.length; i++) { const tt = R.t[i]; if (tt >= a && tt < a + 3) pk = Math.max(pk, R.V[i]); if (tt > a + 2 && tt < b) tr = Math.min(tr, R.V[i]); }
+      peaks.push(pk); if (tr < 1e8) troughs.push(tr);
+    }
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
+    return { rest: at(R, 90), count: s.length, latency: s.length ? s[0] - 100 : 500,
+      adapt, peak: s.length ? mean(peaks) : Math.max(...R.V), trough: troughs.length ? mean(troughs) : at(R, 590) };
+  }
+  function ltsFeatures(R) {
+    const pre = crossings(R, 0, 0, 400), post = crossings(R, 0, 400, 700);
+    return { rest: at(R, 90), hyp: at(R, 395), early: pre.length, count: post.length,
+      latency: post.length ? post[0] - 400 : 300, dur: post.length > 1 ? post[post.length - 1] - post[0] : 0 };
+  }
+  function cardFeatures(R) {
+    const V = R.V, t = R.t, rest = V[0], pk = R.Vmax;
+    let ip = 0; for (let i = 0; i < V.length; i++) if (V[i] > V[ip]) ip = i;
+    let mn = 1e9; for (let i = ip; i < V.length && t[i] < t[ip] + 40; i++) mn = Math.min(mn, V[i]);
+    let dome = -1e9; for (let i = ip; i < V.length && t[i] < 150; i++) dome = Math.max(dome, V[i]);
+    const apd = frac => { const th = pk - (pk - rest) * frac; for (let i = ip; i < V.length; i++) if (V[i] < th) return t[i]; return 600; };
+    const spiked = pk > -20;
+    return { rest, peak: pk, dvdt: R.dVdtMax, notch: spiked ? Math.max(0, pk - mn) : 0, plateau: at(R, 100),
+      apd50: spiked ? apd(0.5) : 0, apd90: spiked ? apd(0.9) : 0 };
+  }
+
+  // ---------- feature metadata ----------
+  const F = {
+    rest: { label: 'Resting potential', unit: 'mV', d: 1 },
+    peak: { label: 'Peak (overshoot)', unit: 'mV', d: 1 },
+    under: { label: 'Undershoot (AHP)', unit: 'mV', d: 1 },
+    width: { label: 'Half-width', unit: 'ms', d: 2 },
+    ttp: { label: 'Time to peak', unit: 'ms', d: 2 },
+    count: { label: 'Spikes in step', unit: '', d: 0 },
+    latency: { label: 'First-spike latency', unit: 'ms', d: 1 },
+    adapt: { label: 'Adaptation (last/first ISI)', unit: '×', d: 2 },
+    trough: { label: 'Interspike trough', unit: 'mV', d: 1 },
+    hyp: { label: 'Hyperpolarised level', unit: 'mV', d: 1 },
+    early: { label: 'Spikes before release', unit: '', d: 0 },
+    dur: { label: 'Burst duration', unit: 'ms', d: 1 },
+    dvdt: { label: 'Max upstroke dV/dt', unit: 'V/s', d: 0 },
+    notch: { label: 'Phase-1 notch depth', unit: 'mV', d: 1 },
+    plateau: { label: 'Plateau at 100 ms', unit: 'mV', d: 1 },
+    apd50: { label: 'APD50', unit: 'ms', d: 0 },
+    apd90: { label: 'APD90', unit: 'ms', d: 0 },
+    shape: { label: 'Waveform RMS error', unit: 'mV', d: 1 },
+  };
+
+  // ---------- levels ----------
+  const CARD_TOOLS = [
+    { k: 'GNa', name: 'Fast Na⁺', gene: 'Nav1.5 · SCN5A', cur: 'INa', unit: 'nS/pF', min: 2, max: 60, col: 'c-na' },
+    { k: 'GCaL', name: 'L-type Ca²⁺', gene: 'Cav1.2 · CACNA1C', cur: 'ICaL', unit: '×10⁻⁴ cm³/µF/s', scale: 1e4, min: 0.3e-4, max: 6e-4, col: 'c-ca' },
+    { k: 'Gto', name: 'Transient outward K⁺', gene: 'Kv4.3 · KCND3', cur: 'Ito', unit: 'nS/pF', min: 0.01, max: 1.2, col: 'c-to' },
+    { k: 'GKr', name: 'Rapid delayed rectifier', gene: 'hERG · KCNH2', cur: 'IKr', unit: 'nS/pF', min: 0.005, max: 0.4, col: 'c-kr' },
+    { k: 'GKs', name: 'Slow delayed rectifier', gene: 'KvLQT1 · KCNQ1', cur: 'IKs', unit: 'nS/pF', min: 0.01, max: 1.0, col: 'c-ks' },
+    { k: 'GK1', name: 'Inward rectifier K⁺', gene: 'Kir2.1 · KCNJ2', cur: 'IK1', unit: 'nS/pF', min: 0.5, max: 20, col: 'c-k1' },
+  ];
+  const CARD_CURRENTS = ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1', 'INaCa', 'INaK'];
+  const CARD_FEATS = { rest: 1.5, peak: 3, dvdt: 40, notch: 3, plateau: 3, apd50: 6, apd90: 6, shape: 3 };
+  const cardSim = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: true, T: 600, out: 1 });
+
+  const LEVELS = [
+    {
+      id: 'squid', name: 'Squid giant axon', who: 'Loligo · 6.3 °C', ref: 'Hodgkin & Huxley 1952',
+      brief: 'The founding recording of membrane biophysics: one action potential in a squid giant axon after a 0.5 ms shock. Three conductances are all it takes.',
+      protocol: '0.5 ms pulse, 20 µA/cm², at t = 2 ms', units: { cur: 'µA/cm²' },
+      tools: [
+        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'squid Nav', cur: 'INa', unit: 'mS/cm²', min: 10, max: 400, col: 'c-na' },
+        { k: 'gK', name: 'Delayed-rectifier K⁺', gene: 'squid Kv1 (sqKv1A)', cur: 'IK', unit: 'mS/cm²', min: 3, max: 150, col: 'c-k1' },
+        { k: 'gL', name: 'Leak', gene: 'mostly Cl⁻ and K⁺', cur: 'IL', unit: 'mS/cm²', min: 0.03, max: 3, col: 'c-lk' },
+      ],
+      currents: ['INa', 'IK', 'IL'],
+      target: { gNa: 120, gK: 36, gL: 0.3 }, start: { gNa: 60, gK: 12, gL: 1.2 },
+      sim: p => M.hh(p), feats: hhFeatures, tol: { rest: 1, peak: 3, under: 2, width: 0.12, ttp: 0.2, shape: 3 },
+      view: { x: [0, 20], y: [-90, 60], xt: 2, yt: 20 },
+      hint0: 'Na⁺ channels make the upstroke; K⁺ channels end the spike and cause the undershoot. Leak sets how hard the cell is to excite.',
+      debrief: 'Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm².',
+    },
+    {
+      id: 'pyramidal', name: 'Cortical pyramidal cell', who: 'Rat neocortex · regular spiking', ref: 'Pospischil et al. 2008',
+      brief: 'Inject a 500 ms current step into a pyramidal neuron and it fires a train that slows down over time. That slowing (spike-frequency adaptation) comes from a slow K⁺ current.',
+      protocol: '2.5 µA/cm² step, 100–600 ms', units: { cur: 'µA/cm²' },
+      tools: [
+        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'Nav1.2 / Nav1.6', cur: 'INa', unit: 'mS/cm²', min: 5, max: 200, col: 'c-na' },
+        { k: 'gKd', name: 'Delayed-rectifier K⁺', gene: 'Kv2.1 · KCNB1', cur: 'IKd', unit: 'mS/cm²', min: 0.5, max: 40, col: 'c-k1' },
+        { k: 'gM', name: 'M-current (slow K⁺)', gene: 'Kv7.2/7.3 · KCNQ2/3', cur: 'IM', unit: 'mS/cm²', min: 0.003, max: 0.6, col: 'c-ks' },
+        { k: 'gL', name: 'Leak', gene: 'K2P and others', cur: 'IL', unit: 'mS/cm²', min: 0.01, max: 1, col: 'c-lk' },
+      ],
+      currents: ['INa', 'IKd', 'IM', 'IL'],
+      target: { gNa: 50, gKd: 5, gM: 0.07, gL: 0.1 }, start: { gNa: 50, gKd: 14, gM: 0.008, gL: 0.06 },
+      sim: p => M.cortical(p, { EL: -70, VT: -56.2, tauMax: 1000, T: 800, out: 0.2, currents: ['INa', 'IKd', 'IM', 'IL'], stim: t => (t >= 100 && t < 600) ? 2.5 : 0 }),
+      feats: rsFeatures, tol: { rest: 1.5, count: 0.8, latency: 3, adapt: 0.35, peak: 3, trough: 2 },
+      view: { x: [0, 800], y: [-90, 60], xt: 100, yt: 20 },
+      hint0: 'Spike count and adaptation are mostly about the slow K⁺ current. Leak sets rest and how long it takes to reach the first spike.',
+      debrief: 'Kv7 (KCNQ2/3) channels open slowly (time constant of hundreds of ms) at subthreshold voltages and do not inactivate. Each spike adds a little more open M-current, so the interspike intervals grow. Muscarinic agonists close these channels, which is where the name "M" comes from, and that turns adaptation off. KCNQ2 mutations cause neonatal epilepsy, and the anticonvulsant retigabine works by opening these channels.',
+    },
+    {
+      id: 'thalamus', name: 'Thalamic neuron', who: 'Thalamocortical / LTS cell', ref: 'Pospischil et al. 2008; Destexhe 1996',
+      brief: 'Hyperpolarise this neuron for 300 ms and let go. It answers with a rebound burst of spikes riding on a slow calcium spike. This is the mechanism behind sleep spindles and absence seizures.',
+      protocol: '−0.5 µA/cm² step, 100–400 ms, then release', units: { cur: 'µA/cm²' },
+      tools: [
+        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'Nav1.1 / Nav1.6', cur: 'INa', unit: 'mS/cm²', min: 5, max: 200, col: 'c-na' },
+        { k: 'gKd', name: 'Delayed-rectifier K⁺', gene: 'Kv2 / Kv3', cur: 'IKd', unit: 'mS/cm²', min: 0.5, max: 40, col: 'c-k1' },
+        { k: 'gT', name: 'T-type Ca²⁺', gene: 'Cav3.1 · CACNA1G', cur: 'IT', unit: 'mS/cm²', min: 0.02, max: 5, col: 'c-ca' },
+        { k: 'gL', name: 'Leak', gene: 'K2P (TASK) and others', cur: 'IL', unit: 'mS/cm²', min: 0.005, max: 0.5, col: 'c-lk' },
+      ],
+      currents: ['INa', 'IKd', 'IT', 'IL'],
+      target: { gNa: 50, gKd: 4, gT: 1, gL: 0.04 }, start: { gNa: 50, gKd: 4, gT: 0.15, gL: 0.1 },
+      sim: p => M.cortical(p, { EL: -75, VT: -50, Vx: 2, T: 700, out: 0.2, currents: ['INa', 'IKd', 'IT', 'IL'], stim: t => (t >= 100 && t < 400) ? -0.5 : 0 }),
+      feats: ltsFeatures, tol: { rest: 1.5, hyp: 2, early: 0.5, count: 0.8, latency: 4, dur: 5 },
+      view: { x: [0, 700], y: [-100, 60], xt: 100, yt: 20 },
+      hint0: 'The burst needs T-type Ca²⁺ channels, which are inactivated at rest and only recover when the cell is hyperpolarised. Leak decides how far the step pushes the voltage down.',
+      debrief: 'Cav3.1 channels are inactivated at rest. A long hyperpolarisation removes the inactivation (the h-like gate u has τ of about 30–100 ms), so on release they open together and produce a low-threshold Ca²⁺ spike that triggers a burst of Na⁺ spikes. Leak conductance matters twice: it sets how far the step can hyperpolarise the cell, and it shunts the Ca²⁺ spike. Ethosuximide, a first-line drug for absence epilepsy, blocks T-type channels.',
+    },
+    {
+      id: 'epi', name: 'Ventricular myocyte', who: 'Human · epicardium · 1 Hz', ref: 'ten Tusscher, Noble, Noble & Panfilov 2004',
+      brief: 'A human ventricular action potential lasts about 300 ms, a hundred times longer than a nerve spike. It has a sharp upstroke, an epicardial notch, a long Ca²⁺-supported plateau and a K⁺-driven repolarisation. Six channel types shape it.',
+      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
+      tools: CARD_TOOLS, currents: CARD_CURRENTS,
+      target: {}, start: { GCaL: 0.9e-4, Gto: 0.05, GKr: 0.2, GK1: 2.0 },
+      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      hint0: 'Work phase by phase. Upstroke: Na⁺. Notch: Ito. Plateau height and length: Ca²⁺ against the two delayed rectifiers. Final repolarisation and rest: IK1.',
+      debrief: 'Each phase has an owner. Phase 0 is Nav1.5, phase 1 the Kv4.3 notch (large in epicardium, small in endocardium), phase 2 a balance between Cav1.2 and hERG/KCNQ1, phase 3 the delayed rectifiers handing over to Kir2.1, and phase 4 Kir2.1 clamping the cell near E_K. The Na⁺/Ca²⁺ exchanger and the Na⁺/K⁺ pump are shown in the current traces but are not adjustable here. They matter too: NCX carries inward current late in the plateau.',
+    },
+    {
+      id: 'mcell', name: 'Mid-myocardial M cell', who: 'Human · midwall · 1 Hz', ref: 'ten Tusscher et al. 2004; Antzelevitch',
+      brief: 'Cells from the middle of the ventricular wall have the longest action potentials in the heart. You start from the epicardial cell. Make it an M cell.',
+      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
+      tools: CARD_TOOLS, currents: CARD_CURRENTS,
+      target: { GKs: 0.062 }, start: {},
+      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      hint0: 'The upstroke and the notch already match. Only repolarisation is late. Which outward currents run during the plateau?',
+      debrief: 'In the original model the M cell differs from epicardium in one parameter: IKs is cut to a quarter (0.245 → 0.062 nS/pF). If you reached a good score another way, for example by lowering hERG or raising Cav1.2, you have found degeneracy: different channel mixes can produce nearly the same waveform (Marder & Goaillard 2006). This is why fitting a voltage trace alone cannot tell you a cell\'s channel densities, and why modellers add voltage-clamp, drug-block and pacing-rate protocols. The transmural APD gradient between epi, M and endo cells is what produces the upright T wave on the ECG.',
+    },
+    {
+      id: 'lqt', name: 'Mystery patient: long QT', who: 'Human · epicardium · 1 Hz', ref: 'Clinical case (model)',
+      brief: 'An infant has fainting spells, a very long QT interval, and webbed fingers and toes. Genetic testing found a single gain-of-function mutation in one ion channel. Find which one, and reproduce the patient\'s action potential.',
+      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
+      tools: CARD_TOOLS, currents: CARD_CURRENTS,
+      target: { GCaL: 3.15e-4 }, start: {},
+      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      hint0: 'Gain of function means more current, not less. Look at the plateau: it is higher as well as longer. Which inward current holds the plateau up?',
+      debrief: 'Timothy syndrome (LQT8), caused by the CACNA1C G406R mutation in Cav1.2. The real mutation mostly removes voltage-dependent inactivation, so L-type Ca²⁺ current keeps flowing through the plateau. Here it is approximated as 1.8× the ICaL conductance. Notice that cutting a K⁺ current (IKs, IKr) also lengthens the AP but cannot raise the plateau, so those fits score lower. Shape features beyond APD are what discriminate between mechanisms. The same channel is expressed in many tissues, which explains the syndactyly and the autism-spectrum features. By contrast, drug-induced long QT almost always comes from hERG (IKr) block. In this 2004 model hERG has a surprisingly small effect, because the model carries a large IKs reserve. Later models such as O\'Hara–Rudy 2011 are much more hERG-sensitive, and that is one reason they are used in the FDA CiPA drug-safety initiative.',
+    },
+    {
+      id: 'potassium', name: 'Electrolyte emergency', who: 'Human · epicardium · 1 Hz', ref: 'ten Tusscher et al. 2004',
+      brief: 'Same healthy channels, different blood. The tools are now the extracellular ion concentrations. A dialysis patient missed two sessions. Match their myocyte\'s action potential.',
+      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
+      tools: [
+        { k: 'Ko', name: 'Extracellular K⁺', gene: 'serum [K⁺]', cur: 'IK1', unit: 'mM', min: 2, max: 12, lin: true, col: 'c-k1' },
+        { k: 'Nao', name: 'Extracellular Na⁺', gene: 'serum [Na⁺]', cur: 'INa', unit: 'mM', min: 110, max: 165, lin: true, col: 'c-na' },
+        { k: 'Cao', name: 'Extracellular Ca²⁺', gene: 'serum [Ca²⁺] (ionised)', cur: 'ICaL', unit: 'mM', min: 0.6, max: 4, lin: true, col: 'c-ca' },
+      ],
+      currents: CARD_CURRENTS,
+      target: { Ko: 8, Nao: 140, Cao: 2 }, start: { Ko: 4, Nao: 132, Cao: 2.8 },
+      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      hint0: 'Look at the resting potential first. Which ion\'s Nernst potential sets it? The kidneys excrete that ion.',
+      debrief: 'Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells.',
+    },
+  ];
+  for (const L of LEVELS) {
+    if (L.model === undefined && L.tools === CARD_TOOLS) {
+      L.target = Object.assign({}, TNNP_REF, L.target);
+      L.start = Object.assign({}, TNNP_REF, L.start);
+    }
+  }
+
+  // ---------- lens (slow-motion membrane view) ----------
+  // Δc(t) in µM from cumulative charge: -∫ΣI dt · (S/V) / (zF); I in µA/cm², t in ms, S/V in cm⁻¹
+  function dconc(R, names, SV, z) {
+    const n = R.t.length, dt = R.t[1] - R.t[0], out = new Float64Array(n); let q = 0;
+    for (let i = 0; i < n; i++) { out[i] = -q * SV / (z * 96485.3415) * 1e0; for (const c of names) q += R.I[c][i] * dt; }
+    return out; // (µA/cm²·ms = 1e-9 C/cm²) × cm⁻¹ / (C/mol) × 1e9 µM per mol/cm³ → factors cancel
+  }
+  function caShell(R, depthUm, tau, cainf) { // Destexhe-style submembrane Ca²⁺ (mM)
+    const n = R.t.length, dt = R.t[1] - R.t[0], out = new Float64Array(n); let ca = cainf;
+    const k = 1e-6 / (2 * 96485.3415 * depthUm * 1e-4) * 1e3; // mM/ms per µA/cm²
+    for (let i = 0; i < n; i++) { out[i] = ca * 1000; const drive = Math.max(0, -k * R.I.IT[i]); ca += dt * (drive + (cainf - ca) / tau); }
+    return out; // µM
+  }
+  const mul = (a, f, off = 0) => { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) o[i] = (a[i] - off) * f; return o; };
+  const NEURON_IONS = { out: 'Na⁺ 145 · K⁺ 4 · Ca²⁺ 2 mM', in: 'Na⁺ 12 · K⁺ 140 mM · Ca²⁺ 0.1 µM' };
+  const CARD_LENS = {
+    pA: 185, scope: 'whole cell (185 pF of membrane)',
+    speeds: [2, 15, 60], sim: p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+    ions: (p, R, i) => ({ out: `Na⁺ ${(p.Nao ?? 140).toFixed(0)} · K⁺ ${(p.Ko ?? 5.4).toFixed(1)} · Ca²⁺ ${(p.Cao ?? 2).toFixed(1)} mM`,
+      in: `Na⁺ ${R.C.Nai[i].toFixed(3)} · K⁺ ${R.C.Ki[i].toFixed(2)} mM · Ca²⁺ ${(R.C.Cai[i] * 1000).toFixed(2)} µM` }),
+    conc: R => [
+      { label: '[Ca²⁺] cytosol', unit: 'µM', data: mul(R.C.Cai, 1000), d: 3, col: 'ion-ca' },
+      { label: '[Ca²⁺] SR store', unit: 'mM', data: R.C.Casr, d: 3, col: 'c-ca' },
+      { label: 'Δ[Na⁺] cytosol', unit: 'µM', data: mul(R.C.Nai, 1000, R.C.Nai[0]), d: 2, col: 'ion-na' },
+      { label: 'Δ[K⁺] cytosol', unit: 'µM', data: mul(R.C.Ki, 1000, R.C.Ki[0]), d: 2, col: 'ion-k' },
+    ],
+    note: 'Concentrations come straight from the model. The Ca²⁺ transient is released from the sarcoplasmic reticulum (SR) by the trigger Ca²⁺ entering through Cav1.2, and it is what makes the cell contract. One beat shifts cytosolic Na⁺ and K⁺ by only tens of µM out of about 11 and 138 mM. Watch Na⁺ jump at the upstroke, then fall as the Na⁺/K⁺ pump works through the beat. Over minutes of pacing the two balance.',
+  };
+  const LENS = {
+    squid: { pA: 1, scope: '100 µm² patch of axon (≈ 8,000 Na⁺ channels at 120 mS/cm²)', speeds: [0.15, 0.8, 3], sim: p => M.hh(p), ions: () => ({ out: 'Na⁺ 440 · K⁺ 20 mM (sea water)', in: 'Na⁺ 50 · K⁺ 400 mM (axoplasm)' }),
+      conc: R => [
+        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 80, 1), d: 3, col: 'ion-na' },
+        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IK'], 80, 1), d: 3, col: 'ion-k' }],
+      note: 'Estimated from the currents for a 500 µm squid axon (surface-to-volume ratio 80 cm⁻¹). One spike raises internal Na⁺ by well under a micromolar, against about 50 mM already there. That is why an axon with its pumps poisoned can still fire many thousands of spikes: an action potential needs only a tiny charge transfer, not a change in concentration.' },
+    pyramidal: { pA: 12.57, scope: 'whole 20 µm soma (1,257 µm², 12.6 pF)', speeds: [1, 10, 40], sim: null, ions: () => NEURON_IONS,
+      conc: R => [
+        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' },
+        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IKd', 'IM'], 3000, 1), d: 1, col: 'ion-k' }],
+      note: 'Estimated from the currents for a 20 µm spherical soma (surface-to-volume ratio 3000 cm⁻¹). Each spike adds a step of Na⁺ and removes a step of K⁺. In a thin dendrite or axon (much larger surface-to-volume ratio) the same train changes concentrations far more, which is why small neurites depend on the Na⁺/K⁺ pump.' },
+    thalamus: { pA: 12.57, scope: 'whole 20 µm soma (1,257 µm², 12.6 pF)', speeds: [1, 10, 40], sim: null, ions: () => NEURON_IONS,
+      conc: R => [
+        { label: '[Ca²⁺] under membrane', unit: 'µM', data: caShell(R, 1, 5, 2.4e-4), d: 3, col: 'ion-ca' },
+        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
+      note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
+    epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
+  };
+  for (const L of LEVELS) { L.lens = LENS[L.id]; if (!L.lens.sim) L.lens = Object.assign({}, L.lens, { sim: L.sim }); }
+
+  // ---------- scoring ----------
+  function rms(a, b) { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s / n); }
+  function evaluate(L, R, T) {
+    const f = L.feats(R), ft = L.feats(T);
+    if ('shape' in L.tol) { f.shape = rms(R.V, T.V); ft.shape = 0; }
+    const rows = []; let tot = 0, n = 0;
+    for (const k of Object.keys(L.tol)) {
+      const d = (f[k] - ft[k]) / L.tol[k];
+      const sc = isFinite(d) ? 100 * Math.exp(-0.5 * d * d) : 0;
+      rows.push({ k, you: f[k], target: ft[k], score: sc }); tot += sc; n++;
+    }
+    return { score: tot / n, rows };
+  }
+  const STARS = [70, 85, 95];
+  const starsFor = s => STARS.filter(x => s >= x).length;
+
+  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF };
+})();
+if (typeof module !== 'undefined') module.exports = CORE;
+
+// ===== Magnifying lens: slow-motion membrane view ========================
+const LENS_UI = (() => {
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  const ION = { INa: 'na', ICaL: 'ca', IT: 'ca', IL: 'lk' }; // everything else carries K⁺
+  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
+    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
+  const SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
+    IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
+  const E_PER_PA = 6.2415e6, TRAVEL = 1.0, MAXP = 2600, DOTS_TARGET = 500, DENS = [1, 0.2, 0.05];
+
+  let L, p, R, conc, unit, open = false, playing = true, tm = 0, speedIdx = 1, auto = true;
+  let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
+
+  function sizeCanvas(cv, h) {
+    const dpr = window.devicePixelRatio || 1; if (h) cv.style.height = h + 'px';
+    const w = cv.clientWidth, hh = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(hh * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr); }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w, h: hh };
+  }
+  const idxAt = t => Math.max(0, Math.min(R.t.length - 1, Math.round(t / (R.t[1] - R.t[0]))));
+  // ---- physiological flux bookkeeping ----
+  // Channels: ions/s = |I| / (z·e). Pump: 1 net charge per cycle (3 Na⁺ out, 2 K⁺ in). NCX: 1 net charge per cycle (3 Na⁺ ⇄ 1 Ca²⁺).
+  const isPump = c => c === 'INaK' || c === 'INaCa';
+  const zOf = c => (ION[c] === 'ca') ? 2 : 1;
+  const ionsPerS = (c, I) => Math.abs(I) * L.lens.pA * E_PER_PA * (isPump(c) ? (c === 'INaK' ? 5 : 4) : 1 / zOf(c));
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sci = (x, d = 1) => { if (!(x > 0)) return '0'; const e = Math.floor(Math.log10(x)), m = x / 10 ** e;
+    if (e < 3) return x.toFixed(0); return `${m.toFixed(d)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`; };
+  const nice = x => { const e = Math.floor(Math.log10(x)), m = x / 10 ** e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * 10 ** e; };
+  const short = c => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : SHORT[c];
+  const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : x.toFixed(3); };
+
+  function openLens(level, params) {
+    L = level; p = Object.assign({}, params);
+    R = L.lens.sim(p); conc = L.lens.conc(R); unit = L.units.cur;
+    { // ions represented by one dot: largest per-channel total over the trace → about DOTS_TARGET dots
+      const dts = (R.t[1] - R.t[0]) / 1000; let mx = 0;
+      for (const c of L.currents) { let tot = 0; for (const x of R.I[c]) tot += ionsPerS(c, x) * dts; mx = Math.max(mx, tot); }
+      NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
+    }
+    dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
+    tm = 0; parts = []; acc = {}; phase = {}; playing = true; speedIdx = 1;
+    $('lensTitle').textContent = L.name;
+    $('lensNote').textContent = L.lens.note;
+    renderSpeeds(); $('lensPlay').textContent = 'Pause';
+    lastFocus = document.activeElement;
+    $('lens').hidden = false; document.body.style.overflow = 'hidden'; open = true;
+    $('lensClose').focus();
+    last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+  }
+  function closeLens() {
+    open = false; cancelAnimationFrame(raf); $('lens').hidden = true; document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function renderSpeeds() {
+    const box = $('lensSpeeds'); box.innerHTML = '';
+    L.lens.speeds.forEach((s, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', i === speedIdx);
+      b.textContent = `${s} ms/s`; b.title = `${s} ms of cell time per second of screen time`;
+      b.onclick = () => { speedIdx = i; renderSpeeds(); }; box.appendChild(b);
+    });
+    const dbox = $('lensDens'); dbox.innerHTML = '';
+    DENS.forEach((f, i) => {
+      const n = Math.max(1, NBASE * f), b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+      b.setAttribute('aria-pressed', i === densIdx); b.textContent = `1 dot = ${sci(n, 0)}`; b.title = `Each dot stands for ${sci(n, 0)} ions`;
+      b.onclick = () => { densIdx = i; NPER = n; acc = {}; renderSpeeds(); }; dbox.appendChild(b);
+    });
+  }
+
+  // ---- particles ----
+  function spawn(x0, dir, ion) { // dir: +1 inward (out→in), −1 outward
+    parts.push({ x0, jx1: (Math.random() - .5) * 26, jx2: (Math.random() - .5) * 26, s: 0, dir, ion });
+  }
+  function frame(now) {
+    if (!open) return;
+    const dtw = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing) {
+      const i = idxAt(tm), i2 = Math.min(R.V.length - 1, i + 1);
+      const dv = Math.abs(R.V[i2] - R.V[i]) / ((R.t[1] - R.t[0]) || 1);
+      let sp = L.lens.speeds[speedIdx];
+      if (auto) sp = sp / (1 + 30 * dv / dvmax);
+      tm += sp * dtw;
+      const tEnd = R.t[R.t.length - 1];
+      if (tm > tEnd) { tm = 0; }
+      // spawn: dots per screen-second = ions/s × (cell seconds per screen second) / ions-per-dot
+      slow = 1000 / sp;
+      const k = (sp / 1000) * dtw / NPER;
+      for (const c of L.currents) {
+        const I = R.I[c][i];
+        if (isPump(c)) {
+          const cyc = Math.abs(I) * L.lens.pA * E_PER_PA * k; // units of NPER cycles
+          phase[c] = (phase[c] || 0) + Math.min(cyc, 400); acc['spin' + c] = (acc['spin' + c] || 0) + Math.min(cyc, 0.25);
+          while (phase[c] >= 1) {
+            phase[c] -= 1;
+            if (c === 'INaK') { for (let n = 0; n < 3; n++) spawn(c, -1, 'na'); for (let n = 0; n < 2; n++) spawn(c, +1, 'k'); }
+            else { const fwd = I < 0; for (let n = 0; n < 3; n++) spawn(c, fwd ? 1 : -1, 'na'); spawn(c, fwd ? -1 : 1, 'ca'); }
+          }
+        } else {
+          acc[c] = (acc[c] || 0) + Math.min(ionsPerS(c, I) * k, 1500);
+          while (acc[c] >= 1) { acc[c] -= 1; spawn(c, I < 0 ? 1 : -1, ION[c] || 'k'); }
+        }
+      }
+      for (const q of parts) q.s += dtw / TRAVEL;
+      parts = parts.filter(q => q.s < 1);
+      if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+    }
+    draw();
+    raf = requestAnimationFrame(frame);
+  }
+
+  // ---- drawing ----
+  function draw() {
+    const i = idxAt(tm), V = R.V[i];
+    const { ctx, w, h } = sizeCanvas($('lm'));
+    const n = L.currents.length, colW = w / n;
+    const bandT = Math.round(h * 0.42), bandB = bandT + 34, yTop = 42, yBot = h - 72;
+    const xOf = c => (L.currents.indexOf(c) + 0.5) * colW;
+    ctx.clearRect(0, 0, w, h);
+    // compartments
+    ctx.fillStyle = css('paper'); ctx.fillRect(0, 0, w, bandT);
+    ctx.fillStyle = css('panel'); ctx.fillRect(0, bandB, w, h - bandB);
+    ctx.save(); ctx.globalAlpha = Math.min(0.28, Math.abs(V) / 100 * 0.28);
+    ctx.fillStyle = V < 0 ? css('you') : css('accent'); ctx.fillRect(0, bandB, w, h - bandB); ctx.restore();
+    // region labels
+    const ions = L.lens.ions(p, R, i);
+    ctx.fillStyle = css('muted'); ctx.font = `10.5px ${css('f-mono')}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillText('OUTSIDE  ' + ions.out, 8, 6);
+    ctx.textBaseline = 'bottom'; ctx.fillText('INSIDE  ' + ions.in, 8, h - 4);
+    // bilayer
+    const lip = css('line'), head = css('muted');
+    ctx.fillStyle = lip; ctx.fillRect(0, bandT, w, bandB - bandT);
+    ctx.fillStyle = head; ctx.globalAlpha = .55;
+    for (let x = 3; x < w; x += 7) { ctx.beginPath(); ctx.arc(x, bandT + 3, 2.6, 0, 7); ctx.arc(x, bandB - 3, 2.6, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    // membrane charge marks
+    const nm = Math.round(Math.min(1, Math.abs(V) / 90) * Math.min(24, w / 30));
+    ctx.font = `700 13px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let k = 0; k < nm; k++) {
+      const x = (k + 0.5) * w / nm + colW * 0.25;
+      ctx.fillStyle = css(V < 0 ? 'accent' : 'you'); ctx.fillText(V < 0 ? '+' : '−', x % w, bandT - 8);
+      ctx.fillStyle = css(V < 0 ? 'you' : 'accent'); ctx.fillText(V < 0 ? '−' : '+', x % w, bandB + 8);
+    }
+    // channels and transporters
+    for (const c of L.currents) {
+      const x = xOf(c), col = css(CH_COL[c] || 'muted'), I = R.I[c][i];
+      ctx.fillStyle = col; ctx.strokeStyle = col;
+      if (c === 'INaCa' || c === 'INaK') {
+        const r = 14, cy = (bandT + bandB) / 2;
+        ctx.beginPath(); ctx.arc(x, cy, r, 0, 7); ctx.fill();
+        ctx.save(); ctx.translate(x, cy); ctx.rotate((acc['spin' + c] || 0) * Math.PI * 2 * (c === 'INaK' ? 1 : (I < 0 ? 1 : -1)));
+        ctx.strokeStyle = css('panel'); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.moveTo(0, -9); ctx.lineTo(0, 9); ctx.stroke();
+        ctx.restore();
+      } else {
+        const Po = R.O && R.O[c] ? Math.max(0, Math.min(1, R.O[c][i])) : 1;
+        const gap = 3 + 16 * Math.sqrt(Po), sw = Math.min(14, colW * 0.18);
+        const y0 = bandT - 8, hh = bandB - bandT + 16;
+        for (const sgn of [-1, 1]) {
+          const xx = sgn < 0 ? x - gap / 2 - sw : x + gap / 2;
+          ctx.beginPath(); ctx.roundRect ? ctx.roundRect(xx, y0, sw, hh, 5) : ctx.rect(xx, y0, sw, hh); ctx.fill();
+        }
+      }
+    }
+    // particles
+    for (const q of parts) {
+      const x = xOf(q.x0); if (!(x >= 0)) continue;
+      const midY = (bandT + bandB) / 2;
+      const yA = q.dir > 0 ? yTop : yBot, yB = q.dir > 0 ? yBot : yTop;
+      const xA = x + (q.dir > 0 ? q.jx1 : q.jx2), xB = x + (q.dir > 0 ? q.jx2 : q.jx1);
+      let px, py;
+      if (q.s < 0.5) { const u = q.s / 0.5; px = xA + (x - xA) * u; py = yA + (midY - yA) * u; }
+      else { const u = (q.s - 0.5) / 0.5; px = x + (xB - x) * u; py = midY + (yB - midY) * u; }
+      ctx.globalAlpha = Math.min(1, Math.min(q.s, 1 - q.s) * 6);
+      ctx.fillStyle = css('ion-' + q.ion);
+      ctx.beginPath(); ctx.arc(px, py, q.ion === 'ca' ? 3.8 : 3, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // labels on top of the ion streams
+    for (const c of L.currents) {
+      const x = xOf(c), I = R.I[c][i];
+      ctx.fillStyle = css(CH_COL[c] || 'muted'); ctx.font = `700 ${colW < 60 ? 10 : 11.5}px ${css('f-body')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(short(c), x, 22);
+      ctx.fillStyle = css('ink'); ctx.font = `${colW < 60 ? 9.5 : 11}px ${css('f-mono')}`;
+      ctx.fillText(sci(ionsPerS(c, I)) + '/s', x, h - 64);
+      ctx.fillStyle = css('muted');
+      ctx.fillText(sig(I), x, h - 51);
+      if (R.O && R.O[c]) ctx.fillText('Po ' + R.O[c][i].toFixed(2), x, h - 38);
+    }
+    // readout
+    $('lensRead').innerHTML = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
+    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>`;
+    drawTrace(i); drawConc(i);
+  }
+
+  function drawTrace(i) {
+    const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
+    const v = L.view, ml = 40, mr = 8, mt = 6, mb = 6;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = css('grid-minor'); ctx.lineWidth = 1; ctx.beginPath();
+    for (let V = Math.ceil(v.y[0] / 20) * 20; V <= v.y[1]; V += 20) { ctx.moveTo(ml, Math.round(Y(V)) + .5); ctx.lineTo(w - mr, Math.round(Y(V)) + .5); }
+    ctx.stroke();
+    ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const V of [v.y[1] - (v.y[1] % 20 || 0), 0, Math.ceil(v.y[0] / 20) * 20]) ctx.fillText(V, ml - 5, Y(V));
+    ctx.strokeStyle = css('you'); ctx.lineWidth = 1.8; ctx.beginPath();
+    for (let k = 0; k < R.t.length; k++) { const x = X(R.t[k]), y = Y(R.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    const x = X(tm);
+    ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); ctx.stroke();
+    ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(R.V[i]), 4.5, 0, 7); ctx.fill();
+  }
+
+  function drawConc(i) {
+    const cv = $('lc'), sh = 54; const { ctx, w, h } = sizeCanvas(cv, conc.length * sh);
+    const v = L.view, ml = 150, mr = 8;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    ctx.clearRect(0, 0, w, h);
+    conc.forEach((c, k) => {
+      let lo = Infinity, hi = -Infinity; for (const x of c.data) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+      if (hi - lo < 1e-9) { hi += 1e-3; lo -= 1e-3; }
+      const pad = (hi - lo) * 0.12, y0 = k * sh + 6, y1 = (k + 1) * sh - 8;
+      const Y = x => y1 - (x - lo + pad) / (hi - lo + 2 * pad) * (y1 - y0);
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(ml + .5, y0 + .5, w - ml - mr - 1, y1 - y0);
+      const col = css(c.col);
+      ctx.fillStyle = col; ctx.font = `700 12.5px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(c.label, 0, y0 + 2);
+      ctx.fillStyle = css('ink'); ctx.font = `12px ${css('f-mono')}`;
+      ctx.fillText(`${c.data[i].toFixed(c.d)} ${c.unit}`, 0, y0 + 20);
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right';
+      ctx.fillText(hi.toFixed(c.d), ml - 4, y0); ctx.textBaseline = 'bottom'; ctx.fillText(lo.toFixed(c.d), ml - 4, y1 + 2);
+      ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.beginPath();
+      for (let j = 0; j < c.data.length; j++) { const x = X(R.t[j]), y = Y(c.data[j]); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+      const x = X(tm); ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+      ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(c.data[i]), 3.5, 0, 7); ctx.fill();
+    });
+  }
+
+  // ---- controls ----
+  function scrub(e) {
+    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = L.view;
+    const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
+    const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
+    tm = Math.max(0, Math.min(R.t[R.t.length - 1], t));
+  }
+  function init() {
+    $('lensClose').onclick = closeLens;
+    $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
+    document.addEventListener('keydown', e => {
+      if (!open) return;
+      if (e.key === 'Escape') closeLens();
+      if (e.key === ' ' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('lensPlay').click(); }
+    });
+    $('lensPlay').onclick = () => { playing = !playing; $('lensPlay').textContent = playing ? 'Pause' : 'Play'; };
+    $('lensRestart').onclick = () => { tm = 0; parts = []; };
+    $('lensAuto').onchange = e => { auto = e.target.checked; };
+    for (const id of ['lv', 'lc']) {
+      const cv = $(id); let down = false;
+      cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); scrub(e); });
+      cv.addEventListener('pointermove', e => { if (down) scrub(e); });
+      cv.addEventListener('pointerup', () => { down = false; });
+    }
+  }
+  return { open: openLens, init };
+})();
+
+// ===== App ===============================================================
+(function () {
+  const { LEVELS, F, evaluate, starsFor, STARS } = CORE;
+  const $ = id => document.getElementById(id);
+  const KEY = 'excitable-progress-v1';
+  const blank = () => ({ stars: {}, best: {}, hinted: {}, params: {}, unlockAll: false, last: 0 });
+  let S = blank();
+  try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  const CUR_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
+    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
+  const CUR_NAME = { INa: 'Na⁺', ICaL: 'Ca²⁺ L-type', IT: 'Ca²⁺ T-type', Ito: 'transient out', IKr: 'K⁺ rapid', IKs: 'K⁺ slow',
+    IM: 'K⁺ M-type', IK1: 'K⁺ inward rect.', IK: 'K⁺', IKd: 'K⁺ delayed rect.', IL: 'leak', INaCa: 'Na⁺/Ca²⁺ exch.', INaK: 'Na⁺/K⁺ pump' };
+
+  let idx = 0, L, p, T, Tdisp, R, ev, curScale = {}, pending = false;
+
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  const fmt = (x, d) => (x === undefined || !isFinite(x)) ? '—' : x.toFixed(d);
+  const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : a >= 0.1 ? x.toFixed(3) : x.toFixed(4); };
+  const unlocked = i => S.unlockAll || i === 0 || (S.stars[LEVELS[i - 1].id] || 0) >= 1;
+
+  // ---- slider mapping ----
+  const N = 1000;
+  const toPos = (t, v) => t.lin ? (v - t.min) / (t.max - t.min) * N : Math.log(v / t.min) / Math.log(t.max / t.min) * N;
+  const fromPos = (t, x) => t.lin ? t.min + (t.max - t.min) * x / N : t.min * Math.pow(t.max / t.min, x / N);
+
+  // ---- deterministic "recording" noise for the target ----
+  function noisy(V, amp) {
+    let s = 12345; const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const out = new Float64Array(V.length); let y = 0;
+    for (let i = 0; i < V.length; i++) { const g = (rnd() + rnd() + rnd() - 1.5) * 2; y = 0.55 * y + 0.45 * g; out[i] = V[i] + amp * y; }
+    return out;
+  }
+
+  // ---- level strip ----
+  function renderLevels() {
+    const el = $('levels'); el.innerHTML = '';
+    LEVELS.forEach((lv, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lv' + (unlocked(i) ? '' : ' locked');
+      b.setAttribute('aria-current', i === idx ? 'true' : 'false');
+      const st = S.stars[lv.id] || 0;
+      b.innerHTML = `<span class="n">${i + 1}</span><span class="t">${lv.name}</span><span class="s">${unlocked(i) ? [0, 1, 2].map(k => `<span class="${k < st ? 'on' : ''}">★</span>`).join('') : 'Earn ★ on level ' + i}</span>`;
+      b.onclick = () => { if (unlocked(i)) loadLevel(i); else toast(`Earn a star on level ${i} to open this one`); };
+      el.appendChild(b);
+      if (i === idx) requestAnimationFrame(() => b.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    });
+    const tot = Object.values(S.stars).reduce((a, b) => a + b, 0);
+    $('tally').textContent = tot; $('tallyOf').textContent = `/ ${LEVELS.length * 3} stars`;
+  }
+
+  // ---- brief ----
+  function renderBrief() {
+    $('brief').innerHTML = `<div class="eyebrow">Level ${idx + 1} · ${L.who} · ${L.ref}</div>
+      <h2>${L.name}</h2><p>${L.brief}</p>
+      <div class="proto"><span>Protocol</span><span>${L.protocol}</span></div>
+      <details class="notes" id="notes"><summary>Field notes (free hint)</summary><p>${L.hint0}</p></details>`;
+    $('curUnit').textContent = `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
+    $('rackSub').textContent = L.id === 'potassium'
+      ? 'The channels are healthy and fixed. Slide to change the patient’s serum ion concentrations.'
+      : 'Slide to change how many channels of each type the membrane carries (maximal conductance).';
+  }
+
+  // ---- rack ----
+  function renderTools() {
+    const box = $('tools'); box.innerHTML = '';
+    for (const t of L.tools) {
+      const row = document.createElement('div'); row.className = 'tool';
+      row.style.setProperty('--tc', `var(--${t.col})`);
+      const id = `sl-${L.id}-${t.k}`;
+      row.innerHTML = `<span class="sw" style="background:var(--${t.col})"></span>
+        <label for="${id}"><div class="nm">${t.name}</div><div class="gn">${t.gene}</div></label>
+        <div class="val" id="v-${t.k}"></div>
+        <input type="range" id="${id}" min="0" max="${N}" step="1" value="${toPos(t, p[t.k])}">`;
+      box.appendChild(row);
+      const inp = row.querySelector('input');
+      inp.addEventListener('input', () => { p[t.k] = fromPos(t, +inp.value); showVal(t); schedule(); });
+      showVal(t);
+    }
+  }
+  function showVal(t) {
+    const v = p[t.k] * (t.scale || 1);
+    $('v-' + t.k).innerHTML = `${sig(v)}<small>${t.unit}</small>`;
+  }
+
+  // ---- simulate & score ----
+  function schedule() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; run(); }); }
+  function run() {
+    R = L.sim(p); ev = evaluate(L, R, T);
+    S.params[L.id] = Object.assign({}, p);
+    const cap = S.hinted[L.id] ? 2 : 3;
+    const st = Math.min(starsFor(ev.score), cap);
+    const prev = S.stars[L.id] || 0;
+    if (ev.score > (S.best[L.id] || 0)) S.best[L.id] = ev.score;
+    if (st > prev) {
+      S.stars[L.id] = st; renderLevels();
+      toast(`<span class="st">${'★'.repeat(st)}</span> ${st === 3 ? 'Perfect match' : st === 2 ? 'Close match' : 'Level cleared'}${idx + 1 < LEVELS.length && prev === 0 ? '. Next level unlocked' : ''}`);
+    }
+    save();
+    drawScope(); drawCurrents(); renderScore(); renderFeats(); renderDebrief();
+  }
+
+  function renderScore() {
+    const s = ev.score, st = starsFor(s), cap = S.hinted[L.id] ? 2 : 3, got = S.stars[L.id] || 0;
+    $('pct').innerHTML = `${Math.floor(s)}<small>%</small>`;
+    $('stars').innerHTML = [0, 1, 2].map(k => `<span class="${k < Math.min(st, cap) ? 'on' : ''}">★</span>`).join('') +
+      (cap < 3 ? '<span class="cap">Assistant used: capped at ★★</span>' : '');
+    $('fill').style.width = Math.max(0, Math.min(100, s)) + '%';
+    const m = document.querySelector('.meter');
+    m.querySelectorAll('.tick').forEach(e => e.remove());
+    STARS.forEach((x, i) => { const d = document.createElement('div'); d.className = 'tick'; d.style.left = x + '%'; d.dataset.l = '★'.repeat(i + 1); m.appendChild(d); });
+    $('bestline').textContent = `Best ${Math.floor(S.best[L.id] || 0)}% · earned ${'★'.repeat(got) || 'no stars yet'} · ★ at ${STARS[0]}%, ★★ at ${STARS[1]}%, ★★★ at ${STARS[2]}%`;
+    $('capnote').hidden = !!S.hinted[L.id];
+  }
+
+  function renderFeats() {
+    $('ftb').innerHTML = ev.rows.map(r => {
+      const f = F[r.k], c = r.score >= 85 ? 'good' : r.score >= 50 ? 'warn' : 'bad';
+      const tg = r.k === 'shape' ? '0' : fmt(r.target, f.d);
+      return `<tr><td>${f.label}${f.unit ? ` <span style="color:var(--muted)">(${f.unit})</span>` : ''}</td>
+        <td class="num">${fmt(r.you, f.d)}</td><td class="num tg">${tg}</td>
+        <td><div class="bar" title="${Math.round(r.score)}%"><i style="width:${r.score}%;background:var(--${c})"></i></div></td></tr>`;
+    }).join('');
+  }
+
+  function renderDebrief() {
+    const el = $('debrief'), got = S.stars[L.id] || 0;
+    if (!got) {
+      el.innerHTML = `<div class="eyebrow">Lab notebook</div><h3>Notes locked</h3>
+        <p class="locked">Reach ${STARS[0]}% match to read what this recording teaches and to compare your channel mix with the original model.</p>`;
+      el.dataset.state = 'locked'; return;
+    }
+    const rows = L.tools.map(t => {
+      const sc = t.scale || 1, a = p[t.k] * sc, b = L.target[t.k] * sc, r = p[t.k] / L.target[t.k];
+      return `<tr><td>${t.name}</td><td>${sig(b)}</td><td>${sig(a)}</td><td>${r.toFixed(2)}×</td></tr>`;
+    }).join('');
+    const next = idx + 1 < LEVELS.length ? `<button class="btn primary" id="next" type="button">Next: ${LEVELS[idx + 1].name}</button>` : '<p><b>That was the last level.</b> Try going back for three stars on every level, or look for a second, different channel mix that matches the same recording.</p>';
+    const key = L.id + got + next;
+    if (el.dataset.state === key) { const tb = el.querySelector('tbody'); if (tb) tb.innerHTML = rows; return; }
+    el.dataset.state = key;
+    el.innerHTML = `<div class="eyebrow">Lab notebook · ${L.ref}</div><h3>What this recording teaches</h3>
+      <p>${L.debrief}</p>
+      <div class="tscroll"><table class="cmp"><thead><tr><th>${L.id === 'potassium' ? 'Concentration' : 'Channel'}</th><th>Original model</th><th>Yours</th><th>Ratio</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p><button class="lensbtn" id="lensEnd" type="button">${document.getElementById('lensOpen').innerHTML.replace('Magnifying lens', 'Replay your cell under the magnifying lens')}</button></p>
+      ${next}`;
+    $('lensEnd').onclick = () => { $('lensUnit').textContent = L.units.cur; LENS_UI.open(L, p); };
+    const nb = $('next'); if (nb) nb.onclick = () => { loadLevel(idx + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  }
+
+  // ---- drawing ----
+  function setupCanvas(cv, h) {
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth;
+    if (h) cv.style.height = h + 'px';
+    const hh = cv.clientHeight;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr);
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h: hh };
+  }
+  function drawScope() {
+    const cv = $('cv'); const { ctx, w, h } = setupCanvas(cv);
+    const v = L.view, ml = 46, mr = 10, mt = 8, mb = 40;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
+    ctx.clearRect(0, 0, w, h);
+    // ECG-paper grid
+    ctx.lineWidth = 1;
+    for (const [step, col] of [[v.xt / 5, 'grid-minor'], [v.xt, 'grid-major']]) {
+      ctx.strokeStyle = css(col); ctx.beginPath();
+      for (let t = v.x[0]; t <= v.x[1] + 1e-9; t += step) { const x = Math.round(X(t)) + .5; ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); }
+      ctx.stroke();
+    }
+    for (const [step, col] of [[v.yt / 4, 'grid-minor'], [v.yt, 'grid-major']]) {
+      ctx.strokeStyle = css(col); ctx.beginPath();
+      for (let V = Math.ceil(v.y[0] / step) * step; V <= v.y[1] + 1e-9; V += step) { const y = Math.round(Y(V)) + .5; ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); }
+      ctx.stroke();
+    }
+    // axes labels
+    ctx.fillStyle = css('muted'); ctx.font = `11px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let V = Math.ceil(v.y[0] / v.yt) * v.yt; V <= v.y[1]; V += v.yt) ctx.fillText(V, ml - 6, Y(V));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const lbStep = (w < 480 && (v.x[1] - v.x[0]) / v.xt > 6) ? v.xt * 2 : v.xt;
+    for (let t = v.x[0]; t <= v.x[1] + 1e-9; t += lbStep) {
+      const last = t + lbStep > v.x[1] + 1e-9;
+      ctx.textAlign = last ? 'right' : 'center'; ctx.fillText(last ? t + ' ms' : t, last ? w - mr : X(t), h - mb + 18);
+    }
+    ctx.textAlign = 'left'; ctx.fillText('mV', 4, mt - 2 < 0 ? 0 : mt - 2);
+    // 0 mV line
+    ctx.strokeStyle = css('grid-major'); ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ml, Y(0) + .5); ctx.lineTo(w - mr, Y(0) + .5); ctx.stroke(); ctx.setLineDash([]);
+    // stimulus strip
+    let smax = 0; for (const s of T.stim) smax = Math.max(smax, Math.abs(s));
+    const sy = h - mb + 8;
+    ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i < T.t.length; i++) { const x = X(T.t[i]), y = sy - (smax ? T.stim[i] / smax : 0) * 5; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    // traces
+    ctx.save(); ctx.beginPath(); ctx.rect(ml, mt, w - ml - mr, h - mt - mb); ctx.clip();
+    const line = (t, V, col, wdt, dash) => {
+      ctx.strokeStyle = css(col); ctx.lineWidth = wdt; ctx.setLineDash(dash || []); ctx.lineJoin = 'round'; ctx.beginPath();
+      for (let i = 0; i < t.length; i++) { const x = X(t[i]), y = Y(V[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    line(T.t, Tdisp, 'target', 2.5, [6, 4]);
+    line(R.t, R.V, 'you', 2);
+    ctx.restore();
+  }
+  function drawCurrents() {
+    const cv = $('ci'), names = L.currents, sh = 44;
+    const { ctx, w, h } = setupCanvas(cv, names.length * sh + 4);
+    const v = L.view, ml = 112, mr = 10;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    ctx.clearRect(0, 0, w, h);
+    names.forEach((n, k) => {
+      const I = R.I[n]; let mx = 0; for (const x of I) mx = Math.max(mx, Math.abs(x));
+      if (!curScale[n] || mx > curScale[n]) curScale[n] = Math.max(mx * 1.15, 1e-3);
+      const sc = curScale[n], y0 = k * sh + sh / 2 + 2, half = sh / 2 - 4;
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ml, Math.round(y0) + .5); ctx.lineTo(w - mr, Math.round(y0) + .5); ctx.stroke();
+      // label: I + subscript
+      const col = css(CUR_COL[n] || 'muted');
+      ctx.fillStyle = col; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      ctx.font = `700 14px ${css('f-body')}`; ctx.fillText('I', 4, y0 - 2);
+      ctx.font = `700 10px ${css('f-body')}`; ctx.fillText(n.slice(1), 9, y0 + 1);
+      ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.fillText('±' + sig(sc), 44, y0 - 2);
+      ctx.font = `10.5px ${css('f-body')}`; ctx.fillText(CUR_NAME[n] || '', 4, y0 + 13);
+      ctx.save(); ctx.beginPath(); ctx.rect(ml, y0 - half - 1, w - ml - mr, 2 * half + 2); ctx.clip();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.beginPath();
+      for (let i = 0; i < I.length; i++) { const x = X(R.t[i]), y = y0 + I[i] / sc * half; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.restore();
+    });
+  }
+
+  // ---- assistant ----
+  function assist() {
+    const btn = $('hint'); btn.disabled = true; btn.textContent = 'Testing channels…';
+    setTimeout(() => {
+      const base = ev.score; let best = null;
+      for (const t of L.tools) for (const f of [1.3, 2, 4, 1 / 1.3, 0.5, 0.25]) {
+        let v = p[t.k] * f;
+        if (t.lin) { const fr = { 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06; v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
+        v = Math.min(t.max, Math.max(t.min, v)); if (Math.abs(v - p[t.k]) < 1e-12) continue;
+        const q = Object.assign({}, p, { [t.k]: v }); const e = evaluate(L, L.sim(q), T);
+        // prefer the gentler step unless a bigger one is clearly better
+        if (!best || e.score > best.e.score + 1) best = { t, up: v > p[t.k], e, f: v / p[t.k] };
+      }
+      S.hinted[L.id] = true; save();
+      const box = $('assist'); box.hidden = false;
+      if (!best || best.e.score - base < 0.5) {
+        box.innerHTML = `No single small change helps right now. You may be in a local optimum: try a larger move on one channel and then re-balance the others. Check which feature bars are still red.`;
+      } else {
+        let gain = null; best.e.rows.forEach((r, i) => { const d = r.score - ev.rows[i].score; if (!gain || d > gain.d) gain = { d, k: r.k }; });
+        box.innerHTML = `<b>${best.up ? 'Raise' : 'Lower'} ${best.t.name}</b> <span style="color:var(--muted)">(${best.t.gene})</span>. ${(() => { const r = best.f >= 1 ? best.f : 1 / best.f; return r > 3 ? 'A big change (about ' + r.toFixed(0) + '×)' : r > 1.6 ? 'Roughly ' + (best.up ? 'doubling' : 'halving') + ' it' : 'A small nudge (about 30%)'; })()} alone takes the match from ${Math.floor(base)}% to ${Math.floor(best.e.score)}%, mostly by improving <i>${F[gain.k].label.toLowerCase()}</i>.`;
+      }
+      btn.disabled = false; btn.textContent = 'Ask the lab assistant'; renderScore();
+    }, 30);
+  }
+
+  // ---- level loading ----
+  function loadLevel(i) {
+    idx = i; L = LEVELS[i]; S.last = i; save();
+    p = Object.assign({}, S.params[L.id] || L.start);
+    T = L.sim(L.target);
+    let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
+    Tdisp = noisy(T.V, span * 0.004 + 0.15);
+    curScale = {};
+    R = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); }
+    $('assist').hidden = true; $('debrief').dataset.state = '';
+    renderLevels(); renderBrief(); renderTools(); run();
+  }
+
+  // ---- misc ----
+  let tt;
+  function toast(html) { const el = $('toast'); el.innerHTML = html; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2600); }
+  $('reset').onclick = () => { p = Object.assign({}, L.start); renderTools(); $('assist').hidden = true; run(); };
+  $('hint').onclick = assist;
+  LENS_UI.init();
+  $('lensOpen').onclick = () => { $('lensUnit').textContent = L.units.cur; LENS_UI.open(L, p); };
+  $('unlockAll').onclick = () => { S.unlockAll = true; save(); renderLevels(); toast('All levels unlocked'); };
+  $('wipe').onclick = function () {
+    if (this.dataset.armed) { S = blank(); save(); this.textContent = 'Reset all progress'; delete this.dataset.armed; loadLevel(0); toast('Progress cleared'); }
+    else { this.dataset.armed = '1'; this.textContent = 'Click again to erase all stars'; setTimeout(() => { delete this.dataset.armed; this.textContent = 'Reset all progress'; }, 4000); }
+  };
+  const redraw = () => { if (R) { drawScope(); drawCurrents(); } };
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(redraw, 80); });
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw); } catch (e) {}
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+
+  function start(data) {
+    if (data && data.S) S = Object.assign(blank(), data.S);
+    let i = (data && typeof data.idx === 'number') ? data.idx : (S.last || 0);
+    if (!unlocked(i)) i = 0;
+    loadLevel(i);
+  }
+  window.claude?.hot?.snapshot?.(() => ({ S, idx }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+
+</script>
+
+</body></html>

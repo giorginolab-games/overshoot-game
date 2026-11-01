@@ -1,0 +1,264 @@
+// ===== Magnifying lens: slow-motion membrane view ========================
+const LENS_UI = (() => {
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  const ION = { INa: 'na', ICaL: 'ca', IT: 'ca', IL: 'lk' }; // everything else carries K⁺
+  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
+    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
+  const SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
+    IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
+  const E_PER_PA = 6.2415e6, TRAVEL = 1.0, MAXP = 2600, DOTS_TARGET = 500, DENS = [1, 0.2, 0.05];
+
+  let L, p, R, conc, unit, open = false, playing = true, tm = 0, speedIdx = 1, auto = true;
+  let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
+
+  function sizeCanvas(cv, h) {
+    const dpr = window.devicePixelRatio || 1; if (h) cv.style.height = h + 'px';
+    const w = cv.clientWidth, hh = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(hh * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr); }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w, h: hh };
+  }
+  const idxAt = t => Math.max(0, Math.min(R.t.length - 1, Math.round(t / (R.t[1] - R.t[0]))));
+  // ---- physiological flux bookkeeping ----
+  // Channels: ions/s = |I| / (z·e). Pump: 1 net charge per cycle (3 Na⁺ out, 2 K⁺ in). NCX: 1 net charge per cycle (3 Na⁺ ⇄ 1 Ca²⁺).
+  const isPump = c => c === 'INaK' || c === 'INaCa';
+  const zOf = c => (ION[c] === 'ca') ? 2 : 1;
+  const ionsPerS = (c, I) => Math.abs(I) * L.lens.pA * E_PER_PA * (isPump(c) ? (c === 'INaK' ? 5 : 4) : 1 / zOf(c));
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sci = (x, d = 1) => { if (!(x > 0)) return '0'; const e = Math.floor(Math.log10(x)), m = x / 10 ** e;
+    if (e < 3) return x.toFixed(0); return `${m.toFixed(d)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`; };
+  const nice = x => { const e = Math.floor(Math.log10(x)), m = x / 10 ** e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * 10 ** e; };
+  const short = c => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : SHORT[c];
+  const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : x.toFixed(3); };
+
+  function openLens(level, params) {
+    L = level; p = Object.assign({}, params);
+    R = L.lens.sim(p); conc = L.lens.conc(R); unit = L.units.cur;
+    { // ions represented by one dot: largest per-channel total over the trace → about DOTS_TARGET dots
+      const dts = (R.t[1] - R.t[0]) / 1000; let mx = 0;
+      for (const c of L.currents) { let tot = 0; for (const x of R.I[c]) tot += ionsPerS(c, x) * dts; mx = Math.max(mx, tot); }
+      NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
+    }
+    dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
+    tm = 0; parts = []; acc = {}; phase = {}; playing = true; speedIdx = 1;
+    $('lensTitle').textContent = L.name;
+    $('lensNote').textContent = L.lens.note;
+    renderSpeeds(); $('lensPlay').textContent = 'Pause';
+    lastFocus = document.activeElement;
+    $('lens').hidden = false; document.body.style.overflow = 'hidden'; open = true;
+    $('lensClose').focus();
+    last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+  }
+  function closeLens() {
+    open = false; cancelAnimationFrame(raf); $('lens').hidden = true; document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function renderSpeeds() {
+    const box = $('lensSpeeds'); box.innerHTML = '';
+    L.lens.speeds.forEach((s, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', i === speedIdx);
+      b.textContent = `${s} ms/s`; b.title = `${s} ms of cell time per second of screen time`;
+      b.onclick = () => { speedIdx = i; renderSpeeds(); }; box.appendChild(b);
+    });
+    const dbox = $('lensDens'); dbox.innerHTML = '';
+    DENS.forEach((f, i) => {
+      const n = Math.max(1, NBASE * f), b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+      b.setAttribute('aria-pressed', i === densIdx); b.textContent = `1 dot = ${sci(n, 0)}`; b.title = `Each dot stands for ${sci(n, 0)} ions`;
+      b.onclick = () => { densIdx = i; NPER = n; acc = {}; renderSpeeds(); }; dbox.appendChild(b);
+    });
+  }
+
+  // ---- particles ----
+  function spawn(x0, dir, ion) { // dir: +1 inward (out→in), −1 outward
+    parts.push({ x0, jx1: (Math.random() - .5) * 26, jx2: (Math.random() - .5) * 26, s: 0, dir, ion });
+  }
+  function frame(now) {
+    if (!open) return;
+    const dtw = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing) {
+      const i = idxAt(tm), i2 = Math.min(R.V.length - 1, i + 1);
+      const dv = Math.abs(R.V[i2] - R.V[i]) / ((R.t[1] - R.t[0]) || 1);
+      let sp = L.lens.speeds[speedIdx];
+      if (auto) sp = sp / (1 + 30 * dv / dvmax);
+      tm += sp * dtw;
+      const tEnd = R.t[R.t.length - 1];
+      if (tm > tEnd) { tm = 0; }
+      // spawn: dots per screen-second = ions/s × (cell seconds per screen second) / ions-per-dot
+      slow = 1000 / sp;
+      const k = (sp / 1000) * dtw / NPER;
+      for (const c of L.currents) {
+        const I = R.I[c][i];
+        if (isPump(c)) {
+          const cyc = Math.abs(I) * L.lens.pA * E_PER_PA * k; // units of NPER cycles
+          phase[c] = (phase[c] || 0) + Math.min(cyc, 400); acc['spin' + c] = (acc['spin' + c] || 0) + Math.min(cyc, 0.25);
+          while (phase[c] >= 1) {
+            phase[c] -= 1;
+            if (c === 'INaK') { for (let n = 0; n < 3; n++) spawn(c, -1, 'na'); for (let n = 0; n < 2; n++) spawn(c, +1, 'k'); }
+            else { const fwd = I < 0; for (let n = 0; n < 3; n++) spawn(c, fwd ? 1 : -1, 'na'); spawn(c, fwd ? -1 : 1, 'ca'); }
+          }
+        } else {
+          acc[c] = (acc[c] || 0) + Math.min(ionsPerS(c, I) * k, 1500);
+          while (acc[c] >= 1) { acc[c] -= 1; spawn(c, I < 0 ? 1 : -1, ION[c] || 'k'); }
+        }
+      }
+      for (const q of parts) q.s += dtw / TRAVEL;
+      parts = parts.filter(q => q.s < 1);
+      if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+    }
+    draw();
+    raf = requestAnimationFrame(frame);
+  }
+
+  // ---- drawing ----
+  function draw() {
+    const i = idxAt(tm), V = R.V[i];
+    const { ctx, w, h } = sizeCanvas($('lm'));
+    const n = L.currents.length, colW = w / n;
+    const bandT = Math.round(h * 0.42), bandB = bandT + 34, yTop = 42, yBot = h - 72;
+    const xOf = c => (L.currents.indexOf(c) + 0.5) * colW;
+    ctx.clearRect(0, 0, w, h);
+    // compartments
+    ctx.fillStyle = css('paper'); ctx.fillRect(0, 0, w, bandT);
+    ctx.fillStyle = css('panel'); ctx.fillRect(0, bandB, w, h - bandB);
+    ctx.save(); ctx.globalAlpha = Math.min(0.28, Math.abs(V) / 100 * 0.28);
+    ctx.fillStyle = V < 0 ? css('you') : css('accent'); ctx.fillRect(0, bandB, w, h - bandB); ctx.restore();
+    // region labels
+    const ions = L.lens.ions(p, R, i);
+    ctx.fillStyle = css('muted'); ctx.font = `10.5px ${css('f-mono')}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillText('OUTSIDE  ' + ions.out, 8, 6);
+    ctx.textBaseline = 'bottom'; ctx.fillText('INSIDE  ' + ions.in, 8, h - 4);
+    // bilayer
+    const lip = css('line'), head = css('muted');
+    ctx.fillStyle = lip; ctx.fillRect(0, bandT, w, bandB - bandT);
+    ctx.fillStyle = head; ctx.globalAlpha = .55;
+    for (let x = 3; x < w; x += 7) { ctx.beginPath(); ctx.arc(x, bandT + 3, 2.6, 0, 7); ctx.arc(x, bandB - 3, 2.6, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    // membrane charge marks
+    const nm = Math.round(Math.min(1, Math.abs(V) / 90) * Math.min(24, w / 30));
+    ctx.font = `700 13px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let k = 0; k < nm; k++) {
+      const x = (k + 0.5) * w / nm + colW * 0.25;
+      ctx.fillStyle = css(V < 0 ? 'accent' : 'you'); ctx.fillText(V < 0 ? '+' : '−', x % w, bandT - 8);
+      ctx.fillStyle = css(V < 0 ? 'you' : 'accent'); ctx.fillText(V < 0 ? '−' : '+', x % w, bandB + 8);
+    }
+    // channels and transporters
+    for (const c of L.currents) {
+      const x = xOf(c), col = css(CH_COL[c] || 'muted'), I = R.I[c][i];
+      ctx.fillStyle = col; ctx.strokeStyle = col;
+      if (c === 'INaCa' || c === 'INaK') {
+        const r = 14, cy = (bandT + bandB) / 2;
+        ctx.beginPath(); ctx.arc(x, cy, r, 0, 7); ctx.fill();
+        ctx.save(); ctx.translate(x, cy); ctx.rotate((acc['spin' + c] || 0) * Math.PI * 2 * (c === 'INaK' ? 1 : (I < 0 ? 1 : -1)));
+        ctx.strokeStyle = css('panel'); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.moveTo(0, -9); ctx.lineTo(0, 9); ctx.stroke();
+        ctx.restore();
+      } else {
+        const Po = R.O && R.O[c] ? Math.max(0, Math.min(1, R.O[c][i])) : 1;
+        const gap = 3 + 16 * Math.sqrt(Po), sw = Math.min(14, colW * 0.18);
+        const y0 = bandT - 8, hh = bandB - bandT + 16;
+        for (const sgn of [-1, 1]) {
+          const xx = sgn < 0 ? x - gap / 2 - sw : x + gap / 2;
+          ctx.beginPath(); ctx.roundRect ? ctx.roundRect(xx, y0, sw, hh, 5) : ctx.rect(xx, y0, sw, hh); ctx.fill();
+        }
+      }
+    }
+    // particles
+    for (const q of parts) {
+      const x = xOf(q.x0); if (!(x >= 0)) continue;
+      const midY = (bandT + bandB) / 2;
+      const yA = q.dir > 0 ? yTop : yBot, yB = q.dir > 0 ? yBot : yTop;
+      const xA = x + (q.dir > 0 ? q.jx1 : q.jx2), xB = x + (q.dir > 0 ? q.jx2 : q.jx1);
+      let px, py;
+      if (q.s < 0.5) { const u = q.s / 0.5; px = xA + (x - xA) * u; py = yA + (midY - yA) * u; }
+      else { const u = (q.s - 0.5) / 0.5; px = x + (xB - x) * u; py = midY + (yB - midY) * u; }
+      ctx.globalAlpha = Math.min(1, Math.min(q.s, 1 - q.s) * 6);
+      ctx.fillStyle = css('ion-' + q.ion);
+      ctx.beginPath(); ctx.arc(px, py, q.ion === 'ca' ? 3.8 : 3, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // labels on top of the ion streams
+    for (const c of L.currents) {
+      const x = xOf(c), I = R.I[c][i];
+      ctx.fillStyle = css(CH_COL[c] || 'muted'); ctx.font = `700 ${colW < 60 ? 10 : 11.5}px ${css('f-body')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(short(c), x, 22);
+      ctx.fillStyle = css('ink'); ctx.font = `${colW < 60 ? 9.5 : 11}px ${css('f-mono')}`;
+      ctx.fillText(sci(ionsPerS(c, I)) + '/s', x, h - 64);
+      ctx.fillStyle = css('muted');
+      ctx.fillText(sig(I), x, h - 51);
+      if (R.O && R.O[c]) ctx.fillText('Po ' + R.O[c][i].toFixed(2), x, h - 38);
+    }
+    // readout
+    $('lensRead').innerHTML = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
+    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>`;
+    drawTrace(i); drawConc(i);
+  }
+
+  function drawTrace(i) {
+    const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
+    const v = L.view, ml = 40, mr = 8, mt = 6, mb = 6;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = css('grid-minor'); ctx.lineWidth = 1; ctx.beginPath();
+    for (let V = Math.ceil(v.y[0] / 20) * 20; V <= v.y[1]; V += 20) { ctx.moveTo(ml, Math.round(Y(V)) + .5); ctx.lineTo(w - mr, Math.round(Y(V)) + .5); }
+    ctx.stroke();
+    ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const V of [v.y[1] - (v.y[1] % 20 || 0), 0, Math.ceil(v.y[0] / 20) * 20]) ctx.fillText(V, ml - 5, Y(V));
+    ctx.strokeStyle = css('you'); ctx.lineWidth = 1.8; ctx.beginPath();
+    for (let k = 0; k < R.t.length; k++) { const x = X(R.t[k]), y = Y(R.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    const x = X(tm);
+    ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); ctx.stroke();
+    ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(R.V[i]), 4.5, 0, 7); ctx.fill();
+  }
+
+  function drawConc(i) {
+    const cv = $('lc'), sh = 54; const { ctx, w, h } = sizeCanvas(cv, conc.length * sh);
+    const v = L.view, ml = 150, mr = 8;
+    const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
+    ctx.clearRect(0, 0, w, h);
+    conc.forEach((c, k) => {
+      let lo = Infinity, hi = -Infinity; for (const x of c.data) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+      if (hi - lo < 1e-9) { hi += 1e-3; lo -= 1e-3; }
+      const pad = (hi - lo) * 0.12, y0 = k * sh + 6, y1 = (k + 1) * sh - 8;
+      const Y = x => y1 - (x - lo + pad) / (hi - lo + 2 * pad) * (y1 - y0);
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(ml + .5, y0 + .5, w - ml - mr - 1, y1 - y0);
+      const col = css(c.col);
+      ctx.fillStyle = col; ctx.font = `700 12.5px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(c.label, 0, y0 + 2);
+      ctx.fillStyle = css('ink'); ctx.font = `12px ${css('f-mono')}`;
+      ctx.fillText(`${c.data[i].toFixed(c.d)} ${c.unit}`, 0, y0 + 20);
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right';
+      ctx.fillText(hi.toFixed(c.d), ml - 4, y0); ctx.textBaseline = 'bottom'; ctx.fillText(lo.toFixed(c.d), ml - 4, y1 + 2);
+      ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.beginPath();
+      for (let j = 0; j < c.data.length; j++) { const x = X(R.t[j]), y = Y(c.data[j]); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+      const x = X(tm); ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+      ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(c.data[i]), 3.5, 0, 7); ctx.fill();
+    });
+  }
+
+  // ---- controls ----
+  function scrub(e) {
+    const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = L.view;
+    const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
+    const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
+    tm = Math.max(0, Math.min(R.t[R.t.length - 1], t));
+  }
+  function init() {
+    $('lensClose').onclick = closeLens;
+    $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
+    document.addEventListener('keydown', e => {
+      if (!open) return;
+      if (e.key === 'Escape') closeLens();
+      if (e.key === ' ' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('lensPlay').click(); }
+    });
+    $('lensPlay').onclick = () => { playing = !playing; $('lensPlay').textContent = playing ? 'Pause' : 'Play'; };
+    $('lensRestart').onclick = () => { tm = 0; parts = []; };
+    $('lensAuto').onchange = e => { auto = e.target.checked; };
+    for (const id of ['lv', 'lc']) {
+      const cv = $(id); let down = false;
+      cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); scrub(e); });
+      cv.addEventListener('pointermove', e => { if (down) scrub(e); });
+      cv.addEventListener('pointerup', () => { down = false; });
+    }
+  }
+  return { open: openLens, init };
+})();

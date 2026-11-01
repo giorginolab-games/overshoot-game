@@ -1,0 +1,279 @@
+<title>Excitable Cell Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an electrophysiology rig. ECG-paper scope on the left, channel rack and scorecard on the right; level strip across the top. */
+:root {
+  --paper: #fcf7f5; --panel: #ffffff; --ink: #1e1a24; --muted: #6c6371; --line: #ecdfdb;
+  --grid-minor: rgba(205, 70, 80, .10); --grid-major: rgba(205, 70, 80, .26);
+  --accent: #b8233a; --accent-ink: #ffffff; --you: #2340b8; --target: #8d8392;
+  --gold: #d48f00; --good: #2b8a3e; --warn: #c77700; --bad: #c92a2a;
+  --c-na: #e8590c; --c-ca: #2b8a3e; --c-to: #c2255c; --c-kr: #6741d9; --c-ks: #1971c2;
+  --c-k1: #0c7480; --c-lk: #868e96; --c-ncx: #a07000; --c-pump: #74695f;
+  --ion-na: #e8590c; --ion-k: #3b5bdb; --ion-ca: #2f9e44; --ion-lk: #868e96;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
+  --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
+  --accent: #ff6b81; --accent-ink: #1a0d11; --you: #86a8ff; --target: #9e93a3;
+  --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
+  --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
+  --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #16131a; --panel: #1f1b24; --ink: #f1ebee; --muted: #a59ba9; --line: #352e3a;
+  --grid-minor: rgba(255, 120, 130, .07); --grid-major: rgba(255, 120, 130, .17);
+  --accent: #ff6b81; --accent-ink: #1a0d11; --you: #86a8ff; --target: #9e93a3;
+  --gold: #ffc23d; --good: #69db7c; --warn: #ffb44d; --bad: #ff7676;
+  --c-na: #ff922b; --c-ca: #69db7c; --c-to: #f06595; --c-kr: #a58bff; --c-ks: #4dabf7;
+  --c-k1: #3bc9db; --c-lk: #adb5bd; --c-ncx: #e0b03c; --c-pump: #b8aca1;
+  --ion-na: #ffa94d; --ion-k: #91a7ff; --ion-ca: #8ce99a; --ion-lk: #adb5bd; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand h1 { font-size: clamp(28px, 4.2vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1; display: flex; align-items: center; gap: 10px; }
+.brand h1 svg { width: 1.6em; height: .9em; flex: none; }
+.brand p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.tally { font-family: var(--f-mono); font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.tally b { font-size: 20px; color: var(--ink); font-weight: 600; }
+.tally .st { color: var(--gold); font-size: 20px; }
+
+/* level strip */
+.levels { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.lv { flex: none; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--r); padding: 8px 12px; cursor: pointer; min-width: 150px; }
+.lv .n { grid-row: span 2; font-family: var(--f-mono); font-size: 13px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); }
+.lv .t { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.lv .s { font-size: 12px; letter-spacing: .1em; color: var(--line); }
+.lv .s .on { color: var(--gold); }
+.lv[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.lv[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.lv.locked { opacity: .5; cursor: not-allowed; }
+.lv.locked .s { color: var(--muted); letter-spacing: 0; }
+
+/* main grid */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+@media (max-width: 960px) { .main { grid-template-columns: minmax(0, 1fr); } .main > .col { display: contents; }
+  #brief { order: 1; } .scope { order: 2; } .scorecard { order: 3; } .rack { order: 4; } .feats { order: 5; } #debrief { order: 6; } }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.brief h2 { font-size: 26px; font-weight: 700; margin: 4px 0 8px; letter-spacing: -.01em; }
+.brief p { margin: 0 0 10px; max-width: 70ch; }
+.proto { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.proto span:first-child { color: var(--accent); }
+details.notes { margin-top: 8px; }
+details.notes summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: 14px; }
+details.notes p { margin: 6px 0 0; color: var(--ink); }
+
+/* scope */
+.scope { padding: 12px 12px 10px; }
+.scope-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 6px 8px; }
+.legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2.5px solid var(--you); vertical-align: middle; margin-right: 6px; }
+.legend i.tg { border-top: 2.5px dashed var(--target); }
+canvas { display: block; width: 100%; }
+#cv { height: 330px; }
+@media (max-width: 560px) { #cv { height: 250px; } }
+.cur-head { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 6px 4px; gap: 10px; flex-wrap: wrap; }
+.cur-head h3 { font-size: 15px; font-weight: 700; }
+.cur-head span { font-size: 12.5px; color: var(--muted); }
+
+/* score */
+.score { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; align-items: center; }
+.score .big { font-family: var(--f-display); font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.score .big small { font-size: 22px; font-weight: 700; color: var(--muted); }
+.stars { font-size: 28px; letter-spacing: 2px; color: var(--line); line-height: 1; }
+.stars .on { color: var(--gold); }
+.stars .cap { color: var(--muted); font-size: 12px; letter-spacing: 0; display: block; margin-top: 4px; font-family: var(--f-body); }
+.meter { grid-column: 1 / -1; position: relative; height: 10px; background: var(--line); border-radius: 5px; margin-top: 10px; overflow: visible; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 5px; transition: width .15s; }
+.meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--panel); }
+.meter .tick::after { content: attr(data-l); position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--gold); font-family: var(--f-mono); white-space: nowrap; }
+.bestline { grid-column: 1 / -1; margin-top: 16px; font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+
+/* rack */
+.rack h3, .feats h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.rack .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+.tool { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; border-top: 1px solid var(--line); align-items: center; }
+.tool:first-of-type { border-top: 0; }
+.tool .sw { width: 12px; height: 12px; border-radius: 3px; }
+.tool .nm { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.tool .gn { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+.tool .val { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tool .val small { color: var(--muted); font-size: 10.5px; display: block; }
+.tool input[type=range] { grid-column: 2 / -1; width: 100%; margin: 6px 0 0; accent-color: var(--tc, var(--accent)); height: 22px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 700; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn[disabled] { opacity: .5; cursor: progress; }
+.assist { margin-top: 10px; font-size: 14px; border-left: 3px solid var(--accent); padding: 6px 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 0 6px 6px 0; }
+.assist[hidden] { display: none; }
+.capnote { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* features */
+.ft { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ft th { text-align: left; font-weight: 400; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 4px 0; }
+.ft td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.ft td.num { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; padding-left: 8px; white-space: nowrap; }
+.ft td.tg { color: var(--muted); }
+.ft .bar { width: 46px; height: 6px; border-radius: 3px; background: var(--line); position: relative; margin-left: 10px; }
+.ft .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+
+/* debrief */
+.debrief h3 { font-size: 20px; font-weight: 700; margin: 4px 0 8px; }
+.debrief p { max-width: 72ch; margin: 0 0 12px; }
+.debrief .locked { color: var(--muted); }
+.cmp { border-collapse: collapse; font-size: 13px; font-family: var(--f-mono); margin: 4px 0 14px; }
+.cmp th, .cmp td { padding: 4px 14px 4px 0; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cmp th:first-child, .cmp td:first-child { text-align: left; font-family: var(--f-body); }
+.cmp th { font-weight: 400; color: var(--muted); font-family: var(--f-body); font-size: 12px; }
+.tscroll { overflow-x: auto; }
+
+.foot { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: 90ch; }
+.foot button { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 13px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper);
+  padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast .st { color: var(--gold); }
+
+/* lens */
+.lensbtn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--accent); color: var(--accent); background: var(--panel); border-radius: 999px; padding: 5px 12px 5px 9px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.lensbtn:hover { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.lensbtn svg { width: 16px; height: 16px; }
+.lens { position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: color-mix(in srgb, var(--ink) 55%, transparent);
+  padding-top: max(16px, env(safe-area-inset-top, 0px)); padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.lens-box { max-width: 1040px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.lens-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.lens-head h2 { font-size: 24px; font-weight: 700; }
+.lens-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+.xbtn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 36px; height: 36px; border-radius: 50%; font-size: 20px; line-height: 1; cursor: pointer; flex: none; }
+.lens-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 12.5px var(--f-mono); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.lens-ctrl label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.lens-read { margin-left: auto; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+#lm { height: 330px; border-radius: 10px; border: 1px solid var(--line); }
+@media (max-width: 560px) { #lm { height: 300px; } .lens-box { padding: 14px 12px; } .lens-read { margin-left: 0; width: 100%; } }
+#lv { height: 90px; cursor: ew-resize; touch-action: none; }
+#lc { cursor: ew-resize; touch-action: none; }
+.lens-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.lens-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.lens-scale { font: 12.5px var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.lens-scale b { font-weight: 600; color: var(--accent); }
+.lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
+@media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1><svg viewBox="0 0 64 36" aria-hidden="true"><path d="M2 28 H16 L20 4 L24 30 L30 22 Q44 22 48 28 H62" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Excitable</h1>
+      <p>Each level shows a target recording. Tune the density of each ion channel until your cell produces the same action potential.</p>
+    </div>
+    <div class="tally" aria-live="polite"><span class="st">★</span><b id="tally">0</b><span id="tallyOf">/ 21 stars</span></div>
+  </header>
+
+  <nav class="levels" id="levels" aria-label="Levels"></nav>
+
+  <div class="main">
+    <div class="col">
+      <section class="card brief" id="brief"></section>
+      <section class="card scope">
+        <div class="scope-head">
+          <span class="eyebrow">Membrane potential · current clamp</span>
+          <button class="lensbtn" id="lensOpen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15 L21 21" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M6.5 10.5 h2 l1-2.5 1.2 5 1-2.5 h1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Magnifying lens</button>
+          <div class="legend"><span><i class="tg"></i>Target recording</span><span><i></i>Your cell</span></div>
+        </div>
+        <canvas id="cv" aria-label="Membrane potential: target recording and your simulated cell"></canvas>
+        <div class="cur-head"><h3>What each channel is doing</h3><span id="curUnit">Ionic currents in your cell. Inward current points down.</span></div>
+        <canvas id="ci" aria-label="Ionic currents in your simulated cell"></canvas>
+      </section>
+      <section class="card debrief" id="debrief"></section>
+    </div>
+
+    <div class="col">
+      <section class="card scorecard">
+        <div class="score">
+          <div class="big" id="pct">0<small>%</small></div>
+          <div><div class="eyebrow">Match</div><div class="stars" id="stars"></div></div>
+          <div class="meter"><div class="fill" id="fill"></div></div>
+          <div class="bestline" id="bestline"></div>
+        </div>
+      </section>
+      <section class="card rack">
+        <h3>Channel rack</h3>
+        <p class="sub" id="rackSub">Slide to change how many channels of each type the membrane carries.</p>
+        <div id="tools"></div>
+        <div class="btns">
+          <button class="btn" id="reset" type="button">Reset level</button>
+          <button class="btn primary" id="hint" type="button">Ask the lab assistant</button>
+        </div>
+        <div class="capnote" id="capnote">The assistant tests every channel for you. Using it caps this level at ★★.</div>
+        <div class="assist" id="assist" hidden></div>
+      </section>
+      <section class="card feats">
+        <h3>Measured features</h3>
+        <div class="tscroll"><table class="ft"><thead><tr><th>Feature</th><th style="text-align:right">You</th><th style="text-align:right">Target</th><th></th></tr></thead><tbody id="ftb"></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <div>Targets are simulated with published conductance-based models plus a little recording noise: Hodgkin–Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons), and ten Tusscher–Noble–Noble–Panfilov 2004 (human ventricle). Each channel is a Hodgkin–Huxley-type conductance, g·(gates)·(V − E). The slider sets the maximal conductance, which is proportional to channel density. In the cardiac levels intracellular Na⁺ and K⁺ are held at their 1 Hz steady state, and features are scored on the second paced beat.</div>
+    <div>Progress is saved in this browser. <button id="unlockAll" type="button">Unlock all levels</button> · <button id="wipe" type="button">Reset all progress</button></div>
+  </footer>
+</div>
+<div class="lens" id="lens" hidden role="dialog" aria-modal="true" aria-labelledby="lensTitle">
+  <div class="lens-box">
+    <div class="lens-head">
+      <div><div class="eyebrow">Under the lens · your cell, slow motion</div><h2 id="lensTitle">Membrane</h2>
+        <p>Ion flow at its true rate, slowed down. Each dot stands for a fixed number of ions, so the dots that cross add up to the real number of ions moved (|I| ÷ ze). The pore opens with the channel's open probability (Po).</p></div>
+      <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
+    </div>
+    <div class="lens-ctrl">
+      <button class="btn primary" id="lensPlay" type="button">Pause</button>
+      <button class="btn" id="lensRestart" type="button">Restart</button>
+      <span id="lensSpeeds" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Playback speed"></span>
+      <span id="lensDens" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Ions per dot"></span>
+      <label><input type="checkbox" id="lensAuto" checked> Slow down on fast events</label>
+      <span class="lens-read" id="lensRead"></span>
+    </div>
+    <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
+    <div class="lens-legend">
+      <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
+      <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
+      <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
+    </div>
+    <div class="lens-scale" id="lensScale"></div>
+    <canvas id="lv" aria-label="Membrane potential with playhead. Drag to scrub."></canvas>
+    <h3>Ion concentrations over time</h3>
+    <canvas id="lc" aria-label="Ion concentrations over time with playhead. Drag to scrub."></canvas>
+    <p class="note" id="lensNote"></p>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/*MODELS*/
+/*CORE*/
+/*LENS*/
+/*APP*/
+</script>
