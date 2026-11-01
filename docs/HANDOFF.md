@@ -22,6 +22,8 @@ npm run build   # writes dist/overshoot.html (single file, ~110 KiB)
 
 There are no dependencies. Node 20 or later is enough. Open `dist/overshoot.html` in a browser to play.
 
+**Versioning.** Semantic versioning, with the version in `package.json` stamped into the page footer at build time. Record changes under `[Unreleased]` in `CHANGELOG.md`. To release, move them under a new version heading, run `npm version <patch|minor|major>` (bumps, rebuilds `dist/`, commits and tags), then `git push --follow-tags`. Don't bump `package.json` by hand.
+
 ## Architecture
 
 ```
