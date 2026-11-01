@@ -1,5 +1,5 @@
 {
-  "name": "excitable",
+  "name": "overshoot-game",
   "version": "0.3.0",
   "private": true,
   "description": "A browser game: shape action potentials by tuning ion-channel densities in published conductance-based models.",

@@ -2,7 +2,7 @@
 (function () {
   const { LEVELS, F, evaluate, starsFor, STARS } = CORE;
   const $ = id => document.getElementById(id);
-  const KEY = 'excitable-progress-v1';
+  const KEY = 'excitable-progress-v1'; // original key kept so saved progress survives the rename
   const blank = () => ({ stars: {}, best: {}, hinted: {}, params: {}, unlockAll: false, last: 0 });
   let S = blank();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}

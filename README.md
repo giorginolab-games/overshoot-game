@@ -1,4 +1,4 @@
-# Excitable
+# Overshoot
 
 A browser game for learning how ion channels shape action potentials. Each level shows a target recording; you tune the density (maximal conductance) of each channel type until your simulated cell reproduces it. A "magnifying lens" replays your cell in slow motion, with ions crossing the membrane at their physiological rate.
 
@@ -32,18 +32,18 @@ src/core.js     levels, feature extraction, scoring, lens metadata
 src/lens.js     slow-motion membrane view
 src/app.js      game UI
 src/shell.html  markup and styles (placeholders are filled by build.js)
-build.js        inlines everything into dist/excitable.html
+build.js        inlines everything into dist/overshoot.html
 test/           regression checks on model outputs and level design
 ```
 
 ## Build and test
 
 ```bash
-npm run build   # writes dist/excitable.html
+npm run build   # writes dist/overshoot.html
 npm test        # model and level regression checks
 ```
 
-Open `dist/excitable.html` in any modern browser.
+Open `dist/overshoot.html` in any modern browser.
 
 ## Modelling notes
 
