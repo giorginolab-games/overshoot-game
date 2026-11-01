@@ -4,6 +4,8 @@ A browser game for learning how ion channels shape action potentials. Each level
 
 Everything runs client-side in a single HTML file with no dependencies.
 
+**Play it:** https://tonigi.github.io/overshoot-game/
+
 ## Levels
 
 | # | Level | Model | Tools |
@@ -44,6 +46,8 @@ npm test        # model and level regression checks
 ```
 
 Open `dist/overshoot.html` in any modern browser.
+
+Every push to `main` runs the tests, builds the page and deploys it to GitHub Pages (`.github/workflows/pages.yml`). One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
 
 ## Modelling notes
 
