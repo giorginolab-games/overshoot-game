@@ -42,6 +42,16 @@ for (const L of C.LEVELS) {
   ok(fLow.qrsDur > fT.qrsDur + 5, `halving gap-junction coupling widens the QRS (${fT.qrsDur} → ${fLow.qrsDur} ms)`);
   ok(Math.abs(fT.qrsAmp - 1) < 0.02, 'reference QRS normalised to 1'); }
 
+// hERG paradox: hERG block alone prolongs QT; adding Cav1.2 block restores it; no other single block can
+{ const L = C.LEVELS.find(l => l.id === 'drug'), T = L.sim(L.target);
+  const qtH = L.feats(L.sim(L.start)).qt, qtT = L.feats(T).qt, qtHealthy = L.feats(L.sim({})).qt;
+  ok(qtH > qtT + 15, `hERG block alone prolongs QT (${qtH} vs ${qtT} ms)`);
+  ok(Math.abs(qtT - qtHealthy) < 8, `hERG + Cav1.2 block keeps QT near control (${qtT} vs ${qtHealthy} ms)`);
+  for (const k of ['Na', 'Ks', 'K1']) {
+    let best = 0; for (const f of [0.1, 0.3, 0.5, 0.7, 0.85]) best = Math.max(best, C.evaluate(L, L.sim({ ...L.start, [k]: f }), T).score);
+    ok(best < C.STARS[0], `drug: blocking ${k} alone stays below one star (${best.toFixed(1)})`);
+  } }
+
 // The worker re-instantiates the models from MODELS_FACTORY's source text
 { const F2 = new Function(`${global.MODELS.MODELS_FACTORY.toString()}; return MODELS_FACTORY();`)();
   const a = F2.hh({ gNa: 120, gK: 36, gL: 0.3 }), b2 = M.hh({ gNa: 120, gK: 36, gL: 0.3 });

@@ -7,6 +7,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
 - **Targets come from published models, unmodified.** The models are Hodgkin & Huxley 1952 (squid axon), Pospischil et al. 2008 (cortical and thalamic neurons) and ten Tusscher, Noble, Noble & Panfilov 2004 (human ventricle). The game changes parameters, never the equations, to make a level work.
 - **Real units everywhere.** The sliders are maximal conductances in the model's own units (mS/cm², nS/pF, ×10⁻⁴ cm³/µF/s, mM). The features are what an electrophysiologist would measure: APD90 in ms, dV/dt in V/s.
 - **A slider is a density.** Maximal conductance stands for the number of channels in the membrane, which answers the question "which channel, how much?" Ion concentrations only become the tools in a level about the extracellular medium (hyperkalaemia).
+- **A level is built only if the model reproduces the clinical picture.** Hyperkalaemia and Brugada ECG levels were prototyped and dropped because this model gives the wrong T wave and no coved ST segment. A level that teaches a wrong ECG is worse than no level.
 - **Disease is a parameter change you can name.** Each pathology level maps to a specific molecular cause: CACNA1C gain of function, serum K⁺. Where the model can only approximate that cause, the debrief says how (Timothy syndrome as 1.8× ICaL, where the real mutation acts through inactivation).
 
 ## 2. Score like a modeller fits
@@ -19,7 +20,7 @@ Overshoot teaches how ion channels shape electrical activity in excitable cells.
 
 ## 3. One idea per level, in a deliberate order
 
-- **Order:** three conductances (squid), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes. The last level moves from cell to tissue: the ECG as the field of a wall of cells.
+- **Order:** three conductances (squid), then slow currents (adaptation), then de-inactivation (rebound burst), then many currents in sequence (myocyte). After that come the three applications: regional heterogeneity, molecular diagnosis, and electrolytes. The last two levels move from cell to tissue: the ECG as the field of a wall of cells, and then a drug-safety question asked of that ECG.
 - **Every level starts clearly wrong but alive.** The starting score is below one star, and the cell still produces something to compare. A test enforces the "below one star" part.
 - **Hints come in two tiers.** The free "field notes" point at concepts. The paid "lab assistant" tests every channel numerically and names the most helpful change, but caps the level at ★★. Help is always available, and mastery is still rewarded.
 - **The explanation comes after the effort.** The lab-notebook debrief unlocks at ★. It explains the physiology, links it to the clinic or the history, and compares your channel mix with the original model's.

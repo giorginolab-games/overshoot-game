@@ -1,6 +1,6 @@
 # Handoff
 
-State of the project as of 2026-11-01 (v0.4: T-wave level added), written for whoever picks it up next: you, a collaborator, or a new Claude session. Read [DESIGN.md](DESIGN.md) first for the principles. This document covers what exists, why it is the way it is, and what is still open.
+State of the project as of 2026-11-01 (v0.5: T-wave and hERG-paradox levels), written for whoever picks it up next: you, a collaborator, or a new Claude session. Read [DESIGN.md](DESIGN.md) first for the principles. This document covers what exists, why it is the way it is, and what is still open.
 
 ## Where things are
 
@@ -16,7 +16,7 @@ The artifact is published by hand from the same `src/` files. It is the inlined 
 ## How to work on it
 
 ```bash
-npm test        # 31 regression checks, ~20 s
+npm test        # 38 regression checks, ~40 s
 npm run build   # writes dist/overshoot.html (single file, ~110 KiB)
 ```
 
@@ -28,7 +28,8 @@ There are no dependencies. Node 20 or later is enough. Open `dist/overshoot.html
 src/models.js  MODELS_FACTORY() → { hh, cortical, tnnp, tnnpCable, tnnpWall }
                cell runs → { t, V, stim, I:{current→array}, O:{current→open prob}, C:{conc→array}, Vmax, dVdtMax, state }
                tnnpStep(cell, P, dt, Ist) is the single TNNP update shared by tnnp() and tnnpCable()
-               tnnpWall(p) → { t, V=ecg, aps:[endo,mid,epi], map (depth×time V), act, rep, probe }
+               tnnpWall(p) → { t, V=ecg, aps:[endo,mid,epi], map (depth×time V), act, rep, probe }   (p overrides WALL_REF)
+               tnnpWallScaled(q): drug block, q = remaining fraction per current {Kr, CaL, Na, Ks, K1}
 src/core.js    CORE.LEVELS[]: tools (sliders), target/start params, sim(), feats(), tol{}, view, texts, lens{}
                CORE.evaluate(level, R, T) → { score, rows[] };  CORE.starsFor(score)
 src/app.js     game UI: level strip, rack, scope + current strips (canvas), scorecard, features, notebook, assistant
@@ -44,6 +45,7 @@ src/shell.html markup + CSS tokens; /*MODELS*/ /*CORE*/ /*LENS*/ /*APP*/ placeho
 - `sim`, `feats` and `tol`;
 - `view` (axes);
 - the texts `brief`, `hint0` and `debrief`;
+- optionally `async: '<MODELS function>'` (runs in the worker), `panel: 'wall'`, and `locked: true` on a tool shown but not adjustable;
 - an entry in the `LENS` map: `pA` (model-current-to-pA factor), `scope`, `speeds`, `ions()`, `conc()` and `note`.
 
 Then add the level's guarantees to `test/models.test.js`. The generic checks (target scores 100, start below one star) already loop over all levels.
@@ -66,6 +68,8 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Name "Overshoot" (was "Excitable") | Owner's choice. The localStorage key `excitable-progress-v1` is kept so saved progress survives | — |
 | Single-file build, no dependencies | Runs as an artifact, on Pages, or offline from disk | Bundler and framework: unnecessary for ~1,300 lines |
 | Apache-2.0 license | Owner's choice | — |
+| Level 9 is a multichannel drug (hERG 40 % + Cav1.2 70 %), with sliders as % of control current, block only (≤ 100 %), and hERG locked | hERG alone gives QT +26 ms; adding Cav1.2 block restores QT (294 vs 296 ms). With block-only sliders no single wrong channel reaches a star (tested). An earlier draft allowed > 100 %, and "IKs ×1.5" then scored 70.7 % | Free hERG slider: raising hERG back to 100 % mimicked the trial ECG |
+| Hyperkalaemia and Brugada ECG levels dropped | Tested on the wall: high Ko widens the QRS (26 → 38 ms at 8.5 mM) but shrinks the T wave instead of peaking it. The epicardial dome never collapsed (Gto up to 2.2, GNa ×0.5, GCaL ×0.6), so no coved ST elevation. Levels must not teach a wrong ECG | A newer model (O'Hara–Rudy) may reproduce both |
 | T-wave level: 1D transmural strand (60 cells, dx = 0.2 mm, 1.2 cm), pseudo-ECG with the electrode 2 cm beyond the epicardium | The standard minimal model of the T wave (Gima & Rudy 2002). It answers the project's founding question about ECG shapes | 2D/3D tissue: far too slow in the browser |
 | Epicardial GKs 0.392 (TNNP 2006 value) and D = 0.0007 cm²/ms | With uniform 2004 IKs and realistic conduction (~46 cm/s), activation delay exceeds the APD gradient and T inverts. A border coupling reduction (Cx43 at M/epi) was tried and barely mattered | Reduced M/epi border coupling (kept in `tnnpCable` as `region.border`, unused) |
 | Tissue runs in a Web Worker built from the model source | ~0.7 s per run would freeze the sliders | Run only on slider release: rejected, it loses the live feel |
@@ -85,6 +89,7 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 | Thalamic rebound submembrane Ca²⁺ (1 µm shell) | 0.24 → ~7 µM |
 | T-wave wall (target) | QRS 26 ms, T/QRS 0.21 upright, QT 296 ms, Tpeak–Tend 23 ms, APD endo/mid/epi 283/282/253 ms |
 | Uniform wall (start) | QRS 15 ms, T/QRS −0.08 (inverted) |
+| Wall with hERG 40 % / hERG 40 % + Cav1.2 70 % | QT 322 / 294 ms (control 296 ms) |
 
 ## Open items
 
@@ -107,7 +112,7 @@ Then add the level's guarantees to `test/models.test.js`. The generic checks (ta
 ## Ideas not yet built
 
 - An O'Hara–Rudy 2011 human ventricle (drug block, CiPA), a sinoatrial node pacemaker (I_f), and an atrial cell (Courtemanche).
-- More ECG levels on the existing wall: drug-induced long QT (hERG block across the wall), hyperkalaemia (peaked T, wide QRS), Brugada-like J waves (epicardial Ito with reduced INa).
+- More ECG levels: pure drug-induced long QT (dofetilide) works on the current wall (QT 296 → 330 ms at 75 % hERG block). Hyperkalaemia (peaked T) and Brugada (coved ST) need a different cell model (see Decisions).
 - Voltage-clamp levels: identify a channel from its I–V curve.
 - Stochastic single-channel mode in the lens: discrete open/closed channels at real densities.
 - Rate-dependence levels (APD restitution) and multi-protocol fitting to show how degeneracy is resolved.

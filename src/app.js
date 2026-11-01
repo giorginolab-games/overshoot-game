@@ -84,6 +84,7 @@
       : `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
     $('rackSub').textContent = L.id === 'potassium'
       ? 'The channels are healthy and fixed. Slide to change the patient’s serum ion concentrations.'
+      : L.id === 'drug' ? 'Slide to set how much current each channel still carries with the drug on board (100 % = no block).'
       : 'Slide to change how many channels of each type the membrane carries (maximal conductance).';
   }
 
@@ -100,6 +101,7 @@
         <input type="range" id="${id}" min="0" max="${N}" step="1" value="${toPos(t, p[t.k])}">`;
       box.appendChild(row);
       const inp = row.querySelector('input');
+      if (t.locked) { inp.disabled = true; row.classList.add('locked'); }
       inp.addEventListener('input', () => { p[t.k] = fromPos(t, +inp.value); showVal(t); schedule(); });
       showVal(t);
     }
@@ -315,10 +317,10 @@
     await new Promise(r => setTimeout(r, 30));
     const g = gen, base = ev.score, rows0 = ev.rows; let best = null;
     const steps = L.async ? [1.5, 1 / 1.5] : [1.3, 2, 4, 1 / 1.3, 0.5, 0.25];
-    const total = L.tools.length * steps.length; let n = 0;
-    for (const t of L.tools) for (const f of steps) {
+    const total = L.tools.filter(x => !x.locked).length * steps.length; let n = 0;
+    for (const t of L.tools.filter(x => !x.locked)) for (const f of steps) {
       let v = p[t.k] * f;
-      if (t.lin) { const fr = { 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06; v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
+      if (t.lin) { const fr = L.async ? .15 : ({ 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06); v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
       v = Math.min(t.max, Math.max(t.min, v)); n++;
       if (Math.abs(v - p[t.k]) < 1e-12) continue;
       if (L.async) btn.textContent = `Testing ${n} of ${total}…`;

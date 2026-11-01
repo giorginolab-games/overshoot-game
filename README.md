@@ -18,6 +18,7 @@ Everything runs client-side in a single HTML file with no dependencies.
 | 6 | Mystery patient: long QT | same | same (Timothy syndrome, Cav1.2 gain of function) |
 | 7 | Electrolyte emergency | same | extracellular K⁺, Na⁺, Ca²⁺ (hyperkalaemia) |
 | 8 | The T wave | 60 TNNP cells in a 1.2 cm transmural strand + pseudo-ECG (Gima & Rudy 2002) | Cx43 coupling, IKs per layer (endo/mid/epi), epicardial Ito, hERG |
+| 9 | The hERG paradox | same wall, drug block | remaining Cav1.2, Nav1.5, KCNQ1, Kir2.1 current (hERG fixed at 40 %): verapamil-like multichannel block, the CiPA lesson |
 
 Scoring compares electrophysiological features (resting potential, overshoot, max dV/dt, notch depth, APD50/90, spike count, adaptation, burst latency; QRS width, T amplitude, QT and Tpeak–Tend for the ECG level) plus waveform RMS error. Stars at 70 / 85 / 95 %.
 

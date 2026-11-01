@@ -295,8 +295,12 @@ function MODELS_FACTORY() {
     return ssCache.get(key);
   }
   const WALL_ECG_SCALE = 1 / 24.26; // normalises the reference wall's QRS to 1
+  // Healthy reference wall; levels override any of these. Ko/Nao/Cao and GNa/GCaL/GK1/GKr apply to every layer.
+  const WALL_REF = { D: 0.0007, GKsEndo: 0.245, GKsM: 0.062, GKsEpi: 0.392, GtoEpi: 0.294, GKr: 0.096,
+    GNa: 14.838, GCaL: 1.75e-4, GK1: 5.405, Ko: 5.4, Nao: 140, Cao: 2 };
   function wallRegions(p) {
-    const base = Object.assign({}, TNNP_REF, { GKr: p.GKr });
+    p = Object.assign({}, WALL_REF, p);
+    const base = { GNa: p.GNa, GCaL: p.GCaL, GK1: p.GK1, GKr: p.GKr, Gto: 0.294, Ko: p.Ko, Nao: p.Nao, Cao: p.Cao };
     const defs = [
       { to: 0.25, cell: 'endo', p: Object.assign({}, base, { Gto: 0.073, GKs: p.GKsEndo }) },
       { to: 0.60, cell: 'epi', p: Object.assign({}, base, { GKs: p.GKsM }) },
@@ -306,10 +310,17 @@ function MODELS_FACTORY() {
     return defs;
   }
   function tnnpWall(p, opts = {}) {
-    return tnnpCable({ D: p.D, L: 1.2, dx: 0.02, regions: wallRegions(p), electrode: 2, ecgScale: WALL_ECG_SCALE }, { T: opts.T || 560, out: 1, mapDt: 2 });
+    return tnnpCable({ D: p.D ?? WALL_REF.D, L: 1.2, dx: 0.02, regions: wallRegions(p), electrode: 2, ecgScale: WALL_ECG_SCALE }, { T: opts.T || 560, out: 1, mapDt: 2 });
   }
 
-  return { hh, cortical, tnnp, tnnpCable, tnnpWall, wallRegions };
+  // Drug block on the healthy wall: q holds the remaining fraction of each current (1 = control).
+  function tnnpWallScaled(q, opts) {
+    const f = k => (q[k] ?? 1), W = WALL_REF;
+    return tnnpWall({ GKr: W.GKr * f('Kr'), GCaL: W.GCaL * f('CaL'), GNa: W.GNa * f('Na'), GK1: W.GK1 * f('K1'),
+      GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
+  }
+
+  return { hh, cortical, tnnp, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 

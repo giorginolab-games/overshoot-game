@@ -122,6 +122,8 @@ canvas { display: block; width: 100%; }
 .tool .gn { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
 .tool .val { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tool .val small { color: var(--muted); font-size: 10.5px; display: block; }
+.tool.locked { opacity: .6; }
+.tool.locked input[type=range] { cursor: not-allowed; }
 .tool input[type=range] { grid-column: 2 / -1; width: 100%; margin: 6px 0 0; accent-color: var(--tc, var(--accent)); height: 22px; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 700; font-size: 14px; }
@@ -579,8 +581,12 @@ function MODELS_FACTORY() {
     return ssCache.get(key);
   }
   const WALL_ECG_SCALE = 1 / 24.26; // normalises the reference wall's QRS to 1
+  // Healthy reference wall; levels override any of these. Ko/Nao/Cao and GNa/GCaL/GK1/GKr apply to every layer.
+  const WALL_REF = { D: 0.0007, GKsEndo: 0.245, GKsM: 0.062, GKsEpi: 0.392, GtoEpi: 0.294, GKr: 0.096,
+    GNa: 14.838, GCaL: 1.75e-4, GK1: 5.405, Ko: 5.4, Nao: 140, Cao: 2 };
   function wallRegions(p) {
-    const base = Object.assign({}, TNNP_REF, { GKr: p.GKr });
+    p = Object.assign({}, WALL_REF, p);
+    const base = { GNa: p.GNa, GCaL: p.GCaL, GK1: p.GK1, GKr: p.GKr, Gto: 0.294, Ko: p.Ko, Nao: p.Nao, Cao: p.Cao };
     const defs = [
       { to: 0.25, cell: 'endo', p: Object.assign({}, base, { Gto: 0.073, GKs: p.GKsEndo }) },
       { to: 0.60, cell: 'epi', p: Object.assign({}, base, { GKs: p.GKsM }) },
@@ -590,10 +596,17 @@ function MODELS_FACTORY() {
     return defs;
   }
   function tnnpWall(p, opts = {}) {
-    return tnnpCable({ D: p.D, L: 1.2, dx: 0.02, regions: wallRegions(p), electrode: 2, ecgScale: WALL_ECG_SCALE }, { T: opts.T || 560, out: 1, mapDt: 2 });
+    return tnnpCable({ D: p.D ?? WALL_REF.D, L: 1.2, dx: 0.02, regions: wallRegions(p), electrode: 2, ecgScale: WALL_ECG_SCALE }, { T: opts.T || 560, out: 1, mapDt: 2 });
   }
 
-  return { hh, cortical, tnnp, tnnpCable, tnnpWall, wallRegions };
+  // Drug block on the healthy wall: q holds the remaining fraction of each current (1 = control).
+  function tnnpWallScaled(q, opts) {
+    const f = k => (q[k] ?? 1), W = WALL_REF;
+    return tnnpWall({ GKr: W.GKr * f('Kr'), GCaL: W.GCaL * f('CaL'), GNa: W.GNa * f('Na'), GK1: W.GK1 * f('K1'),
+      GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
+  }
+
+  return { hh, cortical, tnnp, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 
@@ -834,6 +847,25 @@ const CORE = (() => {
       hint0: 'QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.',
       debrief: 'The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart\'s geometry and on the torso, which needs whole-heart models.',
     },
+    {
+      id: 'drug', name: 'The hERG paradox', who: 'Human LV wall · first-in-human trial · 1 Hz', ref: 'Redfern et al. 2003; CiPA (Colatsky et al. 2016)',
+      brief: 'At its clinical concentration, compound X blocks 60 % of hERG current. On that result alone it would be dropped, because hERG block is the classic cause of drug-induced long QT and torsade de pointes. Yet in the first-in-human trial the QT interval barely moved. The ECG below was recorded at peak plasma concentration. Find what else the compound blocks.',
+      protocol: 'hERG fixed at 40 % of control (from the patch-clamp screen); the other sliders set the current remaining through each channel', units: { cur: 'pA/pF' },
+      tools: [
+        { k: 'Kr', name: 'hERG (IKr)', gene: 'Kv11.1 · fixed by the hERG assay', cur: 'IKr', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-kr', locked: true },
+        { k: 'CaL', name: 'L-type Ca²⁺ (ICaL)', gene: 'Cav1.2 · CACNA1C', cur: 'ICaL', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ca' },
+        { k: 'Na', name: 'Fast Na⁺ (INa)', gene: 'Nav1.5 · SCN5A', cur: 'INa', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-na' },
+        { k: 'Ks', name: 'Slow delayed rectifier (IKs)', gene: 'KCNQ1 · all layers', cur: 'IKs', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ks' },
+        { k: 'K1', name: 'Inward rectifier (IK1)', gene: 'Kir2.1 · KCNJ2', cur: 'IK1', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-k1' },
+      ],
+      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWallScaled', noise: 0.004,
+      target: { Kr: 0.4, CaL: 0.7, Na: 1, Ks: 1, K1: 1 }, start: { Kr: 0.4, CaL: 1, Na: 1, Ks: 1, K1: 1 },
+      sim: q => M.tnnpWallScaled(q), feats: ecgFeatures,
+      tol: { qrsAmp: 0.04, qrsDur: 3, tAmp: 0.03, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.03 },
+      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
+      hint0: 'Blocking hERG removes outward current during the plateau, so repolarisation comes late. To bring it back on time without restoring hERG, the drug must also remove some inward current from the plateau. Which inward current holds the plateau up?',
+      debrief: 'Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O\'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative.',
+    },
   ];
   for (const L of LEVELS) {
     if (L.model === undefined && L.tools === CARD_TOOLS) {
@@ -887,6 +919,12 @@ const CORE = (() => {
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
       note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
     epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
+    drug: Object.assign({}, CARD_LENS, {
+      sim: q => M.tnnp(Object.assign({}, TNNP_REF, { GKr: TNNP_REF.GKr * q.Kr, GCaL: TNNP_REF.GCaL * q.CaL, GNa: TNNP_REF.GNa * q.Na, GKs: 0.392 * q.Ks, GK1: TNNP_REF.GK1 * q.K1 }),
+        { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      note: 'One epicardial cell with your drug\'s block applied, uncoupled from the wall. Compare the Cav1.2 and hERG currents during the plateau with the untreated cell. ' + CARD_LENS.note,
+    }),
     twave: Object.assign({}, CARD_LENS, {
       sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
       view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
@@ -1266,6 +1304,7 @@ const LENS_UI = (() => {
       : `Ionic currents in your cell, ${L.units.cur}. Inward current points down.`;
     $('rackSub').textContent = L.id === 'potassium'
       ? 'The channels are healthy and fixed. Slide to change the patient’s serum ion concentrations.'
+      : L.id === 'drug' ? 'Slide to set how much current each channel still carries with the drug on board (100 % = no block).'
       : 'Slide to change how many channels of each type the membrane carries (maximal conductance).';
   }
 
@@ -1282,6 +1321,7 @@ const LENS_UI = (() => {
         <input type="range" id="${id}" min="0" max="${N}" step="1" value="${toPos(t, p[t.k])}">`;
       box.appendChild(row);
       const inp = row.querySelector('input');
+      if (t.locked) { inp.disabled = true; row.classList.add('locked'); }
       inp.addEventListener('input', () => { p[t.k] = fromPos(t, +inp.value); showVal(t); schedule(); });
       showVal(t);
     }
@@ -1497,10 +1537,10 @@ const LENS_UI = (() => {
     await new Promise(r => setTimeout(r, 30));
     const g = gen, base = ev.score, rows0 = ev.rows; let best = null;
     const steps = L.async ? [1.5, 1 / 1.5] : [1.3, 2, 4, 1 / 1.3, 0.5, 0.25];
-    const total = L.tools.length * steps.length; let n = 0;
-    for (const t of L.tools) for (const f of steps) {
+    const total = L.tools.filter(x => !x.locked).length * steps.length; let n = 0;
+    for (const t of L.tools.filter(x => !x.locked)) for (const f of steps) {
       let v = p[t.k] * f;
-      if (t.lin) { const fr = { 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06; v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
+      if (t.lin) { const fr = L.async ? .15 : ({ 1.3: .06, 2: .15, 4: .3 }[f >= 1 ? f : +(1 / f).toFixed(1)] || .06); v = p[t.k] + (f > 1 ? 1 : -1) * fr * (t.max - t.min); }
       v = Math.min(t.max, Math.max(t.min, v)); n++;
       if (Math.abs(v - p[t.k]) < 1e-12) continue;
       if (L.async) btn.textContent = `Testing ${n} of ${total}…`;

@@ -233,6 +233,25 @@ const CORE = (() => {
       hint0: 'QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.',
       debrief: 'The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart\'s geometry and on the torso, which needs whole-heart models.',
     },
+    {
+      id: 'drug', name: 'The hERG paradox', who: 'Human LV wall · first-in-human trial · 1 Hz', ref: 'Redfern et al. 2003; CiPA (Colatsky et al. 2016)',
+      brief: 'At its clinical concentration, compound X blocks 60 % of hERG current. On that result alone it would be dropped, because hERG block is the classic cause of drug-induced long QT and torsade de pointes. Yet in the first-in-human trial the QT interval barely moved. The ECG below was recorded at peak plasma concentration. Find what else the compound blocks.',
+      protocol: 'hERG fixed at 40 % of control (from the patch-clamp screen); the other sliders set the current remaining through each channel', units: { cur: 'pA/pF' },
+      tools: [
+        { k: 'Kr', name: 'hERG (IKr)', gene: 'Kv11.1 · fixed by the hERG assay', cur: 'IKr', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-kr', locked: true },
+        { k: 'CaL', name: 'L-type Ca²⁺ (ICaL)', gene: 'Cav1.2 · CACNA1C', cur: 'ICaL', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ca' },
+        { k: 'Na', name: 'Fast Na⁺ (INa)', gene: 'Nav1.5 · SCN5A', cur: 'INa', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-na' },
+        { k: 'Ks', name: 'Slow delayed rectifier (IKs)', gene: 'KCNQ1 · all layers', cur: 'IKs', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ks' },
+        { k: 'K1', name: 'Inward rectifier (IK1)', gene: 'Kir2.1 · KCNJ2', cur: 'IK1', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-k1' },
+      ],
+      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWallScaled', noise: 0.004,
+      target: { Kr: 0.4, CaL: 0.7, Na: 1, Ks: 1, K1: 1 }, start: { Kr: 0.4, CaL: 1, Na: 1, Ks: 1, K1: 1 },
+      sim: q => M.tnnpWallScaled(q), feats: ecgFeatures,
+      tol: { qrsAmp: 0.04, qrsDur: 3, tAmp: 0.03, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.03 },
+      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
+      hint0: 'Blocking hERG removes outward current during the plateau, so repolarisation comes late. To bring it back on time without restoring hERG, the drug must also remove some inward current from the plateau. Which inward current holds the plateau up?',
+      debrief: 'Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O\'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative.',
+    },
   ];
   for (const L of LEVELS) {
     if (L.model === undefined && L.tools === CARD_TOOLS) {
@@ -286,6 +305,12 @@ const CORE = (() => {
         { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
       note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
     epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
+    drug: Object.assign({}, CARD_LENS, {
+      sim: q => M.tnnp(Object.assign({}, TNNP_REF, { GKr: TNNP_REF.GKr * q.Kr, GCaL: TNNP_REF.GCaL * q.CaL, GNa: TNNP_REF.GNa * q.Na, GKs: 0.392 * q.Ks, GK1: TNNP_REF.GK1 * q.K1 }),
+        { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
+      note: 'One epicardial cell with your drug\'s block applied, uncoupled from the wall. Compare the Cav1.2 and hERG currents during the plateau with the untreated cell. ' + CARD_LENS.note,
+    }),
     twave: Object.assign({}, CARD_LENS, {
       sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
       view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
