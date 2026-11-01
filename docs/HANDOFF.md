@@ -35,7 +35,8 @@ src/models.js  MODELS_FACTORY() → { hh, cortical, tnnp, tnnpCable, tnnpWall }
 src/core.js    CORE.LEVELS[]: tools (sliders), target/start params, sim(), feats(), tol{}, view, texts, lens{}
                CORE.evaluate(level, R, T) → { score, rows[] };  CORE.starsFor(score)
 src/app.js     game UI: level strip, rack, scope + current strips (canvas), scorecard, features, notebook, assistant
-src/lens.js    LENS_UI.open(level, params): animated membrane, V(t) scrubber, concentration strips
+src/lens.js    LENS_UI.open(level, params): animated membrane, two-way time control, event caption/list, concentration strips
+               events come from CORE.lensEvents(L, R, p) (pure, tested): generic Po half-crossings, V and conc landmarks, plus per-level moments
 src/shell.html markup + CSS tokens; /*MODELS*/ /*CORE*/ /*LENS*/ /*APP*/ placeholders filled by build.js
 ```
 

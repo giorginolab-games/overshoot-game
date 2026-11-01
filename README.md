@@ -26,6 +26,8 @@ Scoring compares electrophysiological features (resting potential, overshoot, ma
 
 - Channels drawn in a bilayer; pore aperture follows open probability.
 - Ion dots are calibrated: ions/s = |I| / (z·e) over a stated membrane area (100 µm² squid patch, 20 µm soma, or the whole 185 pF myocyte); transporters move 3 Na⁺/2 K⁺ (pump) or 3 Na⁺/1 Ca²⁺ (NCX) per net charge. Dots per screen-second = real flux × slow-motion factor ÷ ions per dot, so the dots crossing equal the true ion count.
+- Time control: play forwards or backwards, step, jump between events, or scrub on any plot or the time slider. When paused, time is frozen but ions keep flowing at that instant's rate.
+- Time-synced events: channel state changes (opens, closes, inactivates, reopens), voltage and concentration landmarks, and each level's defining moments (cardiac phases 0–4, adaptation, rebound burst), shown as a caption, a clickable list and ticks on V(t).
 - Concentration traces: model state variables for the myocyte ([Ca²⁺]ᵢ, [Ca²⁺]SR, Δ[Na⁺]ᵢ, Δ[K⁺]ᵢ); for neurons, estimates from integrated currents and the stated geometry (Destexhe-style 1 µm Ca²⁺ shell for the thalamic cell).
 
 ## Layout

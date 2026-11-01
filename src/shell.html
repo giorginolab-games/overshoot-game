@@ -182,6 +182,24 @@ canvas { display: block; width: 100%; }
 #lc { cursor: ew-resize; touch-action: none; }
 .lens-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
 .lens-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.tbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn.sm { padding: 6px 10px; font-size: 13px; }
+.lens-event { --ec: var(--line); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-height: 46px; border-left: 4px solid var(--ec);
+  background: var(--paper); border-radius: 0 8px 8px 0; padding: 8px 12px; font-size: 14px; }
+.lens-event .et { font: 600 13px var(--f-mono); color: var(--accent); min-width: 64px; font-variant-numeric: tabular-nums; }
+.lens-event .elines { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lens-event .eline { display: block; }
+.lens-event .eline i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.lens-event .ed { color: var(--muted); }
+.scrub { width: 100%; margin: -4px 0 0; accent-color: var(--accent); }
+.lens-events { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; position: relative; }
+.evchip { --ec: var(--muted); flex: none; border: 1px solid var(--line); border-left: 3px solid var(--ec); background: var(--panel); color: var(--ink);
+  border-radius: 6px; padding: 4px 9px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.evchip .et { font: 11.5px var(--f-mono); color: var(--muted); margin-right: 6px; }
+.evchip[aria-current="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); border-left-color: var(--ec); }
+.evchip[aria-current="true"] .et { color: var(--panel); opacity: .8; }
+.lens .keys { margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) { .lens-event { flex-direction: column; gap: 2px; } }
 .lens-scale { font: 12.5px var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 .lens-scale b { font-weight: 600; color: var(--accent); }
 .lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
@@ -257,13 +275,21 @@ canvas { display: block; width: 100%; }
       <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
     </div>
     <div class="lens-ctrl">
-      <button class="btn primary" id="lensPlay" type="button">Pause</button>
-      <button class="btn" id="lensRestart" type="button">Restart</button>
+      <div class="tbtns" role="group" aria-label="Playback">
+        <button class="btn sm" id="lensPrev" type="button" title="Previous event (comma key)">◂ Event</button>
+        <button class="btn sm" id="lensBack" type="button" title="Step back (← key; hold Shift for 10 steps)" aria-label="Step back">◂ Step</button>
+        <button class="btn sm" id="lensRev" type="button" title="Play backwards">◂ Play back</button>
+        <button class="btn sm primary" id="lensPlay" type="button" title="Play forwards (Space)">Pause</button>
+        <button class="btn sm" id="lensFwd" type="button" title="Step forward (→ key; hold Shift for 10 steps)" aria-label="Step forward">Step ▸</button>
+        <button class="btn sm" id="lensNext" type="button" title="Next event (full-stop key)">Event ▸</button>
+        <button class="btn sm" id="lensRestart" type="button">Restart</button>
+      </div>
       <span id="lensSpeeds" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Playback speed"></span>
       <span id="lensDens" style="display:flex;gap:6px;flex-wrap:wrap" aria-label="Ions per dot"></span>
       <label><input type="checkbox" id="lensAuto" checked> Slow down on fast events</label>
       <span class="lens-read" id="lensRead"></span>
     </div>
+    <div class="lens-event" id="lensEvent" aria-live="off"></div>
     <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
     <div class="lens-legend">
       <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
@@ -271,7 +297,10 @@ canvas { display: block; width: 100%; }
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
     </div>
     <div class="lens-scale" id="lensScale"></div>
-    <canvas id="lv" aria-label="Membrane potential with playhead. Drag to scrub."></canvas>
+    <canvas id="lv" aria-label="Membrane potential with playhead and event ticks. Drag to scrub."></canvas>
+    <input type="range" id="lensScrub" class="scrub" aria-label="Time in the recording" min="0" max="1" step="0.1" value="0">
+    <div class="lens-events" id="lensEvents" aria-label="Events: click to jump"></div>
+    <p class="keys">Drag on the plots or the time slider to scrub. Keys: ← → step (Shift ×10) · , . previous/next event · Space play/pause · Home/End.</p>
     <h3>Ion concentrations over time</h3>
     <canvas id="lc" aria-label="Ion concentrations over time with playhead. Drag to scrub."></canvas>
     <p class="note" id="lensNote"></p>

@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+### Added
+- Lens: scrub time in both directions (time slider, drag on any plot, step and reverse-play buttons, keyboard: arrows, `,` `.`, Space, Home/End).
+- Lens: time-synced events, with a caption, a clickable event list and ticks on V(t). Channel state changes (opens, closes, inactivates, reopens), voltage and concentration landmarks, and level-defining moments (cardiac phases 0–4, M-current adaptation, T-channel recovery and rebound burst, undershoot). The channel named by the current event is outlined on the membrane.
+- Lens: when paused, ions keep flowing at the instantaneous rate (frozen time, live flux).
+
+### Changed
+- Cardiac lens runs sample every 0.1 ms (was 1 ms) so the upstroke events resolve.
+
+### Fixed
+- Lens could open paused when the first animation frame's timestamp preceded the open time.
 
 ## [0.5.0] - 2026-11-01
 ### Added

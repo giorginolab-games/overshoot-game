@@ -277,7 +277,7 @@ const CORE = (() => {
   const NEURON_IONS = { out: 'Na⁺ 145 · K⁺ 4 · Ca²⁺ 2 mM', in: 'Na⁺ 12 · K⁺ 140 mM · Ca²⁺ 0.1 µM' };
   const CARD_LENS = {
     pA: 185, scope: 'whole cell (185 pF of membrane)',
-    speeds: [2, 15, 60], sim: p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+    speeds: [2, 15, 60], sim: p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
     ions: (p, R, i) => ({ out: `Na⁺ ${(p.Nao ?? 140).toFixed(0)} · K⁺ ${(p.Ko ?? 5.4).toFixed(1)} · Ca²⁺ ${(p.Cao ?? 2).toFixed(1)} mM`,
       in: `Na⁺ ${R.C.Nai[i].toFixed(3)} · K⁺ ${R.C.Ki[i].toFixed(2)} mM · Ca²⁺ ${(R.C.Cai[i] * 1000).toFixed(2)} µM` }),
     conc: R => [
@@ -307,17 +307,114 @@ const CORE = (() => {
     epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
     drug: Object.assign({}, CARD_LENS, {
       sim: q => M.tnnp(Object.assign({}, TNNP_REF, { GKr: TNNP_REF.GKr * q.Kr, GCaL: TNNP_REF.GCaL * q.CaL, GNa: TNNP_REF.GNa * q.Na, GKs: 0.392 * q.Ks, GK1: TNNP_REF.GK1 * q.K1 }),
-        { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+        { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
       view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
       note: 'One epicardial cell with your drug\'s block applied, uncoupled from the wall. Compare the Cav1.2 and hERG currents during the plateau with the untreated cell. ' + CARD_LENS.note,
     }),
     twave: Object.assign({}, CARD_LENS, {
-      sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 1 }),
+      sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
       view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
       note: 'This is one epicardial cell with your wall\'s channel densities, uncoupled from its neighbours, so you can watch the K⁺ currents that end its action potential early. In the wall, coupling to the longer-lasting midwall cells pulls its repolarisation a little later. ' + CARD_LENS.note,
     }),
   };
   for (const L of LEVELS) { L.lens = LENS[L.id]; if (!L.lens.sim) L.lens = Object.assign({}, L.lens, { sim: L.sim }); }
+
+  // ---------- lens events: channel state changes and level-defining moments, in cell time ----------
+  const CH_SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
+    IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
+  const chName = (L, c) => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : CH_SHORT[c];
+  const INACT = { INa: 1, Ito: 1, ICaL: 1, IT: 1 }; // channels whose Po falls mainly by inactivation
+  const CH_DETAIL = {
+    INa: ['activation gates (m) snap open; Na⁺ rushes in', 'inactivation gate (h) closes the pore despite the depolarisation'],
+    ICaL: ['L-type Ca²⁺ channels open; Ca²⁺ entry triggers release from the SR', 'voltage- and Ca²⁺-dependent inactivation shuts the pore'],
+    IT: ['T-type channels, freed from inactivation, open near rest', 'they inactivate again within tens of ms'],
+    Ito: ['fast K⁺ outflow pulls V down: the phase-1 notch', 'inactivation ends the transient outward current'],
+    IKr: ['hERG recovers from inactivation as V falls, so its current peaks during repolarisation', 'deactivates as V returns to rest'],
+    IKs: ['slow activation over hundreds of ms', 'deactivates slowly at rest'],
+    IM: ['slow K⁺ current builds up spike after spike', 'deactivates slowly after the step'],
+    IK1: ['reopens as V falls below about −20 mV, finishing repolarisation', 'inward rectification: the pore is plugged by Mg²⁺ and polyamines when depolarised'],
+    IK: ['delayed rectifier opens and repolarises the membrane', 'closes slowly; the lag causes the undershoot'],
+    IKd: ['delayed rectifier opens and repolarises the spike', 'closes after the spike'],
+  };
+  function lensEvents(L, R, p) {
+    const ev = [], t = R.t, V = R.V, n = t.length, dt = t[1] - t[0];
+    const add = (time, label, detail, kind, ch) => { if (isFinite(time)) ev.push({ t: time, label, detail: detail || '', kind, ch }); };
+    // stimulus
+    const st = R.stim; let on = -1;
+    for (let i = 0; i < n; i++) {
+      const a = Math.abs(st[i]) > 0, b = i > 0 && Math.abs(st[i - 1]) > 0;
+      if (a && !b) on = i;
+      if ((!a && b) || (a && i === n - 1)) {
+        const dur = t[i] - t[on];
+        if (dur < 3) add(t[on], 'Stimulus pulse', `${(st[on] > 0 ? 'depolarising' : 'inward')} current for ${dur.toFixed(1)} ms`, 'stim');
+        else { add(t[on], st[on] > 0 ? 'Current step on' : 'Hyperpolarising step on', '', 'stim'); add(t[i], 'Step off', '', 'stim'); }
+      }
+    }
+    // voltage landmarks (first spike only)
+    let up = -1; for (let i = 1; i < n; i++) if (V[i - 1] < 0 && V[i] >= 0) { up = i; break; }
+    if (up > 0) {
+      let pk = up; while (pk + 1 < n && V[pk + 1] >= V[pk]) pk++;
+      add(t[up], 'Overshoot', 'the inside of the membrane turns positive', 'v');
+      add(t[pk], `Peak ${V[pk] > 0 ? '+' : ''}${V[pk].toFixed(0)} mV`, 'dV/dt = 0: inward and outward currents balance', 'v');
+      for (let i = pk; i < n - 1; i++) if (V[i] >= 0 && V[i + 1] < 0) { add(t[i + 1], 'Back below 0 mV', '', 'v'); break; }
+    }
+    // channel state changes: first two crossings of the half-way open probability
+    for (const c of L.currents) {
+      const O = R.O && R.O[c]; if (!O) continue;
+      let lo = Infinity, hi = -Infinity; for (const x of O) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+      if (hi - lo < 0.01) continue;
+      const th = lo + 0.5 * (hi - lo), startOpen = O[0] > th; let k = 0;
+      for (let i = 1; i < n && k < 2; i++) {
+        const rose = O[i - 1] < th && O[i] >= th, fell = O[i - 1] >= th && O[i] < th;
+        if (!rose && !fell) continue;
+        const nm = chName(L, c), d = CH_DETAIL[c] || ['', ''];
+        if (rose) add(t[i], `${nm} ${startOpen ? 'reopens' : 'opens'}`, d[0], 'ch', c);
+        else add(t[i], `${nm} ${!startOpen && INACT[c] ? 'inactivates' : 'closes'}`, d[1], 'ch', c);
+        k++;
+      }
+    }
+    // concentration peaks
+    if (L.lens.conc) for (const cs of L.lens.conc(R)) {
+      let bi = 0; for (let i = 0; i < cs.data.length; i++) if (Math.abs(cs.data[i] - cs.data[0]) > Math.abs(cs.data[bi] - cs.data[0])) bi = i;
+      if (bi > 0 && bi < 0.98 * cs.data.length) add(t[bi], cs.label.startsWith('Δ') ? `${cs.label}: largest change` : `${cs.label} peaks`, `${cs.data[bi].toFixed(cs.d)} ${cs.unit}`, 'conc');
+    }
+    // level-defining moments
+    const spikes = []; for (let i = 1; i < n; i++) if (V[i - 1] < 0 && V[i] >= 0) spikes.push(t[i]);
+    const cardiac = L.currents.includes('ICaL');
+    if (L.id === 'squid') {
+      let mi = 0; for (let i = 0; i < n; i++) if (V[i] < V[mi]) mi = i;
+      if (spikes.length) add(t[mi], 'Undershoot', `V reaches ${V[mi].toFixed(1)} mV, close to E_K = −77 mV, because K⁺ channels are still open`, 'level');
+    } else if (L.id === 'pyramidal' && spikes.length) {
+      add(spikes[0], 'Spike 1', 'the first interval is the shortest', 'level');
+      if (spikes.length > 2) {
+        const isi1 = spikes[1] - spikes[0], isiN = spikes[spikes.length - 1] - spikes[spikes.length - 2];
+        add(spikes[spikes.length - 1], `Spike ${spikes.length}`, `the interval is now ${(isiN / isi1).toFixed(1)}× the first: M-current has built up`, 'level');
+      }
+    } else if (L.id === 'thalamus') {
+      const post = spikes.filter(x => x > 400);
+      if (R.I.IT) { let bi = 0; for (let i = 0; i < n; i++) if (R.I.IT[i] < R.I.IT[bi]) bi = i; add(t[bi], 'Low-threshold Ca²⁺ spike', 'the T-type current peaks and carries the membrane to Na⁺ threshold', 'level'); }
+      if (post.length) add(post[0], `Burst: ${post.length} spike${post.length > 1 ? 's' : ''}`, `in ${(post[post.length - 1] - post[0]).toFixed(0)} ms, riding on the Ca²⁺ spike`, 'level');
+      add(250, 'T-channels recovering', 'hyperpolarisation removes inactivation (gate u relaxes towards 1)', 'level');
+    } else if (cardiac && up > 0) {
+      let i0 = 1; for (let i = 1; i < Math.min(n, Math.round(20 / dt)); i++) if (V[i] - V[i - 1] > V[i0] - V[i0 - 1]) i0 = i;
+      let pk = 0; for (let i = 0; i < n; i++) if (V[i] > V[pk]) pk = i;
+      let nt = pk; for (let i = pk; i < n && t[i] < t[pk] + 40; i++) if (V[i] < V[nt]) nt = i;
+      let dome = nt; for (let i = nt; i < n && t[i] < 200; i++) if (V[i] > V[dome]) dome = i;
+      const rest = V[0], amp = V[pk] - rest, apd = f => { for (let i = pk; i < n; i++) if (V[i] < V[pk] - f * amp) return t[i]; return NaN; };
+      add(t[i0], 'Phase 0 · upstroke', 'Nav1.5 opens: hundreds of pA/pF flow in for about a millisecond', 'phase', 'INa');
+      if (V[pk] - V[nt] > 2) add(t[nt], 'Phase 1 · notch', 'Kv4.3 (Ito) pulls V down before the plateau', 'phase', 'Ito');
+      add(t[Math.max(dome, nt + 1)], 'Phase 2 · plateau', 'inward Cav1.2 and NCX nearly balance outward hERG and KCNQ1', 'phase', 'ICaL');
+      add(apd(0.5), 'Phase 3 · repolarisation', 'hERG and KCNQ1 win; Kir2.1 reopens and accelerates the fall', 'phase', 'IKr');
+      add(apd(0.9), 'APD90', '90 % repolarised', 'phase');
+      add(apd(0.9) + 40, 'Phase 4 · rest', `Kir2.1 holds V near E_K (rest ${rest.toFixed(1)} mV)`, 'phase', 'IK1');
+      if (L.id === 'potassium') {
+        const EK = 26.71 * Math.log((p.Ko ?? 5.4) / 138.3);
+        add(0, `Rest at ${rest.toFixed(1)} mV`, `[K⁺]o = ${(p.Ko ?? 5.4).toFixed(1)} mM puts E_K at ${EK.toFixed(1)} mV`, 'level');
+      }
+    }
+    ev.sort((a, b) => a.t - b.t);
+    return ev;
+  }
 
   // ---------- scoring ----------
   function rms(a, b) { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s / n); }
@@ -335,6 +432,6 @@ const CORE = (() => {
   const STARS = [70, 85, 95];
   const starsFor = s => STARS.filter(x => s >= x).length;
 
-  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF };
+  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF, lensEvents, CH_SHORT };
 })();
 if (typeof module !== 'undefined') module.exports = CORE;

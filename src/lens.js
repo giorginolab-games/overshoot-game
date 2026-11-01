@@ -9,7 +9,10 @@ const LENS_UI = (() => {
     IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
   const E_PER_PA = 6.2415e6, TRAVEL = 1.0, MAXP = 2600, DOTS_TARGET = 500, DENS = [1, 0.2, 0.05];
 
-  let L, p, R, conc, unit, open = false, playing = true, tm = 0, speedIdx = 1, auto = true;
+  let L, p, R, conc, unit, open = false, playing = true, dir = 1, tm = 0, speedIdx = 1, auto = true;
+  let events = [], evCur = -2, stepMs = 0.1, tEnd = 1, scrubbing = false;
+  const EV_COL = { stim: 'accent', v: 'you', phase: 'ink', conc: 'c-ca', level: 'gold' };
+  const evColor = e => e.kind === 'ch' ? (CH_COL[e.ch] || 'muted') : (EV_COL[e.kind] || 'muted');
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
 
   function sizeCanvas(cv, h) {
@@ -40,10 +43,14 @@ const LENS_UI = (() => {
       NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
     }
     dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
-    tm = 0; parts = []; acc = {}; phase = {}; playing = true; speedIdx = 1;
+    tm = 0; parts = []; acc = {}; phase = {}; playing = true; dir = 1; speedIdx = 1;
+    tEnd = R.t[R.t.length - 1];
+    stepMs = Math.max(R.t[1] - R.t[0], tEnd / 3000);
+    events = CORE.lensEvents(L, R, p); evCur = -2;
+    const sc = $('lensScrub'); sc.min = 0; sc.max = tEnd; sc.step = R.t[1] - R.t[0]; sc.value = 0;
     $('lensTitle').textContent = L.name;
     $('lensNote').textContent = L.lens.note;
-    renderSpeeds(); $('lensPlay').textContent = 'Pause';
+    renderSpeeds(); renderEvents(); updateButtons();
     lastFocus = document.activeElement;
     $('lens').hidden = false; document.body.style.overflow = 'hidden'; open = true;
     $('lensClose').focus();
@@ -74,39 +81,91 @@ const LENS_UI = (() => {
   }
   function frame(now) {
     if (!open) return;
-    const dtw = Math.min(0.05, (now - last) / 1000); last = now;
+    const dtw = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; // rAF stamps can precede the open time
+    const i = idxAt(tm);
+    const base = L.lens.speeds[speedIdx]; let sp = base;
     if (playing) {
-      const i = idxAt(tm), i2 = Math.min(R.V.length - 1, i + 1);
+      const i2 = Math.min(R.V.length - 1, i + 1);
       const dv = Math.abs(R.V[i2] - R.V[i]) / ((R.t[1] - R.t[0]) || 1);
-      let sp = L.lens.speeds[speedIdx];
-      if (auto) sp = sp / (1 + 30 * dv / dvmax);
-      tm += sp * dtw;
-      const tEnd = R.t[R.t.length - 1];
-      if (tm > tEnd) { tm = 0; }
-      // spawn: dots per screen-second = ions/s × (cell seconds per screen second) / ions-per-dot
-      slow = 1000 / sp;
-      const k = (sp / 1000) * dtw / NPER;
-      for (const c of L.currents) {
-        const I = R.I[c][i];
-        if (isPump(c)) {
-          const cyc = Math.abs(I) * L.lens.pA * E_PER_PA * k; // units of NPER cycles
-          phase[c] = (phase[c] || 0) + Math.min(cyc, 400); acc['spin' + c] = (acc['spin' + c] || 0) + Math.min(cyc, 0.25);
-          while (phase[c] >= 1) {
-            phase[c] -= 1;
-            if (c === 'INaK') { for (let n = 0; n < 3; n++) spawn(c, -1, 'na'); for (let n = 0; n < 2; n++) spawn(c, +1, 'k'); }
-            else { const fwd = I < 0; for (let n = 0; n < 3; n++) spawn(c, fwd ? 1 : -1, 'na'); spawn(c, fwd ? -1 : 1, 'ca'); }
-          }
-        } else {
-          acc[c] = (acc[c] || 0) + Math.min(ionsPerS(c, I) * k, 1500);
-          while (acc[c] >= 1) { acc[c] -= 1; spawn(c, I < 0 ? 1 : -1, ION[c] || 'k'); }
-        }
-      }
-      for (const q of parts) q.s += dtw / TRAVEL;
-      parts = parts.filter(q => q.s < 1);
-      if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+      if (auto) sp = base / (1 + 30 * dv / dvmax);
+      tm += dir * sp * dtw;
+      if (tm > tEnd) tm = 0;
+      if (tm < 0) { tm = 0; playing = false; updateButtons(); }
     }
+    // spawn: dots per screen-second = ions/s × (cell seconds per screen second) / ions-per-dot.
+    // When paused, time is frozen but ions keep flowing at the instantaneous rate, shown at the selected speed.
+    slow = 1000 / sp;
+    const k = (sp / 1000) * dtw / NPER;
+    for (const c of L.currents) {
+      const I = R.I[c][i];
+      if (isPump(c)) {
+        const cyc = Math.abs(I) * L.lens.pA * E_PER_PA * k; // units of NPER cycles
+        phase[c] = (phase[c] || 0) + Math.min(cyc, 400); acc['spin' + c] = (acc['spin' + c] || 0) + Math.min(cyc, 0.25);
+        while (phase[c] >= 1) {
+          phase[c] -= 1;
+          if (c === 'INaK') { for (let n = 0; n < 3; n++) spawn(c, -1, 'na'); for (let n = 0; n < 2; n++) spawn(c, +1, 'k'); }
+          else { const fwd = I < 0; for (let n = 0; n < 3; n++) spawn(c, fwd ? 1 : -1, 'na'); spawn(c, fwd ? -1 : 1, 'ca'); }
+        }
+      } else {
+        acc[c] = (acc[c] || 0) + Math.min(ionsPerS(c, I) * k, 1500);
+        while (acc[c] >= 1) { acc[c] -= 1; spawn(c, I < 0 ? 1 : -1, ION[c] || 'k'); }
+      }
+    }
+    for (const q of parts) q.s += dtw / TRAVEL;
+    parts = parts.filter(q => q.s < 1);
+    if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+    if (!scrubbing) $('lensScrub').value = tm;
+    updateEvent();
     draw();
     raf = requestAnimationFrame(frame);
+  }
+
+  // ---- events: caption, list, navigation ----
+  const curEventIdx = () => { let k = -1; for (let j = 0; j < events.length; j++) if (events[j].t <= tm + 1e-6) k = j; return k; };
+  function renderEvents() {
+    const box = $('lensEvents'); box.innerHTML = '';
+    events.forEach((e, j) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'evchip'; b.dataset.j = j;
+      b.style.setProperty('--ec', `var(--${evColor(e)})`);
+      b.innerHTML = `<span class="et">${fmtT(e.t)}</span>${e.label}`;
+      b.title = e.detail || e.label;
+      b.onclick = () => jump(e.t, true); box.appendChild(b);
+    });
+  }
+  const fmtT = x => `${x.toFixed(tEnd < 50 ? 2 : x < 20 ? 1 : 0)} ms`;
+  function updateEvent() {
+    const k = curEventIdx(); if (k === evCur) return; evCur = k;
+    const cap = $('lensEvent');
+    cap.setAttribute('aria-live', playing ? 'off' : 'polite');
+    if (k < 0) { cap.style.setProperty('--ec', 'var(--line)'); cap.innerHTML = '<span class="et">—</span><span class="elines"><span class="eline"><b>Before the first event.</b> Press play, scrub the timeline, or pick an event below.</span></span>'; }
+    else {
+      // every event at this instant (several can coincide, e.g. upstroke and channel openings)
+      const grp = events.map((e, j) => [e, j]).filter(([e]) => Math.abs(e.t - events[k].t) < 1e-6);
+      cap.style.setProperty('--ec', `var(--${evColor(grp[grp.length - 1][0])})`);
+      cap.innerHTML = `<span class="et">${fmtT(events[k].t)}</span><span class="elines">` + grp.map(([e]) =>
+        `<span class="eline"><i style="background:var(--${evColor(e)})"></i><b>${e.label}</b>${e.detail ? ` <span class="ed">${e.detail}</span>` : ''}</span>`).join('') + '</span>';
+    }
+    const box = $('lensEvents'), tk = k >= 0 ? events[k].t : NaN;
+    box.querySelectorAll('.evchip').forEach(b => b.setAttribute('aria-current', Math.abs(events[+b.dataset.j].t - tk) < 1e-6 ? 'true' : 'false'));
+    const cur = box.querySelector(`.evchip[data-j="${k}"]`);
+    if (cur) { const l = cur.offsetLeft - box.offsetLeft, r = l + cur.offsetWidth; if (l < box.scrollLeft || r > box.scrollLeft + box.clientWidth) box.scrollLeft = l - 24; }
+  }
+  function jump(t, pause) {
+    const big = Math.abs(t - tm) > 0.05 * tEnd;
+    tm = Math.max(0, Math.min(tEnd, t)); if (big) parts = [];
+    if (pause) { playing = false; updateButtons(); }
+    evCur = -2;
+  }
+  function stepEvent(d) {
+    if (d > 0) { const e = events.find(x => x.t > tm + 1e-6); if (e) jump(e.t, true); }
+    else { const prev = events.filter(x => x.t < tm - 1e-6); jump(prev.length ? prev[prev.length - 1].t : 0, true); }
+  }
+  function updateButtons() {
+    $('lensPlay').textContent = playing && dir > 0 ? 'Pause' : 'Play ▸';
+    $('lensRev').textContent = playing && dir < 0 ? 'Pause' : '◂ Play back';
+    $('lensPlay').setAttribute('aria-pressed', playing && dir > 0);
+    $('lensRev').setAttribute('aria-pressed', playing && dir < 0);
+    evCur = -2;
   }
 
   // ---- drawing ----
@@ -161,6 +220,14 @@ const LENS_UI = (() => {
         }
       }
     }
+    // highlight the channel named by the current event
+    const ce = evCur >= 0 ? events[evCur] : null;
+    if (ce && ce.ch && L.currents.includes(ce.ch)) {
+      const x = xOf(ce.ch);
+      ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - colW * 0.42, bandT - 26, colW * 0.84, bandB - bandT + 52, 10) : ctx.rect(x - colW * 0.42, bandT - 26, colW * 0.84, bandB - bandT + 52); ctx.stroke();
+      ctx.setLineDash([]);
+    }
     // particles
     for (const q of parts) {
       const x = xOf(q.x0); if (!(x >= 0)) continue;
@@ -188,7 +255,9 @@ const LENS_UI = (() => {
     }
     // readout
     $('lensRead').innerHTML = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
-    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>`;
+    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
+      (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
+        : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
     drawTrace(i); drawConc(i);
   }
 
@@ -205,6 +274,12 @@ const LENS_UI = (() => {
     for (const V of [v.y[1] - (v.y[1] % 20 || 0), 0, Math.ceil(v.y[0] / 20) * 20]) ctx.fillText(V, ml - 5, Y(V));
     ctx.strokeStyle = css('you'); ctx.lineWidth = 1.8; ctx.beginPath();
     for (let k = 0; k < R.t.length; k++) { const x = X(R.t[k]), y = Y(R.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    events.forEach((e, j) => {
+      const ex = Math.round(X(e.t)) + .5, cur = j === evCur;
+      ctx.strokeStyle = css(evColor(e)); ctx.lineWidth = cur ? 2.5 : 1.2; ctx.globalAlpha = cur ? 1 : .7;
+      ctx.beginPath(); ctx.moveTo(ex, h - mb); ctx.lineTo(ex, h - mb - (cur ? 14 : 7)); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
     const x = X(tm);
     ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); ctx.stroke();
     ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(R.V[i]), 4.5, 0, 7); ctx.fill();
@@ -240,18 +315,34 @@ const LENS_UI = (() => {
     const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = (L.lens.view || L.view);
     const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
     const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
-    tm = Math.max(0, Math.min(R.t[R.t.length - 1], t));
+    jump(t, true);
   }
   function init() {
     $('lensClose').onclick = closeLens;
     $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
     document.addEventListener('keydown', e => {
       if (!open) return;
-      if (e.key === 'Escape') closeLens();
-      if (e.key === ' ' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('lensPlay').click(); }
+      if (e.key === 'Escape') { closeLens(); return; }
+      const tag = e.target.tagName, onRange = tag === 'INPUT' && e.target.type === 'range';
+      if (e.key === ' ' && tag !== 'BUTTON' && tag !== 'INPUT') { e.preventDefault(); $('lensPlay').click(); }
+      else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !onRange) { e.preventDefault(); jump(tm + (e.key === 'ArrowRight' ? 1 : -1) * stepMs * (e.shiftKey ? 10 : 1), true); }
+      else if (e.key === ',' || e.key === '<') { e.preventDefault(); stepEvent(-1); }
+      else if (e.key === '.' || e.key === '>') { e.preventDefault(); stepEvent(1); }
+      else if (e.key === 'Home') { e.preventDefault(); jump(0, true); }
+      else if (e.key === 'End') { e.preventDefault(); jump(tEnd, true); }
     });
-    $('lensPlay').onclick = () => { playing = !playing; $('lensPlay').textContent = playing ? 'Pause' : 'Play'; };
-    $('lensRestart').onclick = () => { tm = 0; parts = []; };
+    const toggle = d => { if (playing && dir === d) playing = false; else { playing = true; dir = d; if (d > 0 && tm >= tEnd) tm = 0; if (d < 0 && tm <= 0) tm = tEnd; } updateButtons(); };
+    $('lensPlay').onclick = () => toggle(1);
+    $('lensRev').onclick = () => toggle(-1);
+    $('lensBack').onclick = e => jump(tm - stepMs * (e.shiftKey ? 10 : 1), true);
+    $('lensFwd').onclick = e => jump(tm + stepMs * (e.shiftKey ? 10 : 1), true);
+    $('lensPrev').onclick = () => stepEvent(-1);
+    $('lensNext').onclick = () => stepEvent(1);
+    $('lensRestart').onclick = () => { tm = 0; parts = []; playing = true; dir = 1; updateButtons(); };
+    const sc = $('lensScrub');
+    sc.addEventListener('input', () => { scrubbing = true; jump(+sc.value, true); });
+    sc.addEventListener('change', () => { scrubbing = false; });
+    sc.addEventListener('pointerup', () => { scrubbing = false; });
     $('lensAuto').onchange = e => { auto = e.target.checked; };
     for (const id of ['lv', 'lc']) {
       const cv = $(id); let down = false;

@@ -52,6 +52,20 @@ for (const L of C.LEVELS) {
     ok(best < C.STARS[0], `drug: blocking ${k} alone stays below one star (${best.toFixed(1)})`);
   } }
 
+// Lens events: sorted, inside the trace, and the level-defining ones are present
+for (const L of C.LEVELS) {
+  const R = L.lens.sim(L.target), E = C.lensEvents(L, R, L.target), tEnd = R.t[R.t.length - 1];
+  ok(E.length >= 5 && E.every((e, i) => e.t >= 0 && e.t <= tEnd && (i === 0 || e.t >= E[i - 1].t)), `${L.id}: ${E.length} lens events, sorted and in range`);
+  const has = re => E.some(e => re.test(e.label));
+  if (L.currents.includes('ICaL')) {
+    const ph = ['Phase 0', 'Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'].map(x => (E.find(e => e.label.startsWith(x)) || {}).t);
+    ok(ph.every((x, i) => isFinite(x) && (i === 0 || x > ph[i - 1])), `${L.id}: cardiac phases 0–4 detected in order`);
+  }
+  if (L.id === 'squid') ok(has(/^Undershoot/) && has(/Nav inactivates/), 'squid: undershoot and Na inactivation');
+  if (L.id === 'pyramidal') ok(E.some(e => /× the first: M-current/.test(e.detail)) && has(/Kv7 opens/), 'pyramidal: adaptation event and M-current opening');
+  if (L.id === 'thalamus') ok(has(/^Burst: \d+ spikes/) && has(/Cav3\.1 opens/), 'thalamus: T-channel opening and burst');
+}
+
 // The worker re-instantiates the models from MODELS_FACTORY's source text
 { const F2 = new Function(`${global.MODELS.MODELS_FACTORY.toString()}; return MODELS_FACTORY();`)();
   const a = F2.hh({ gNa: 120, gK: 36, gL: 0.3 }), b2 = M.hh({ gNa: 120, gK: 36, gL: 0.3 });
