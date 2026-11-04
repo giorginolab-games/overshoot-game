@@ -181,6 +181,8 @@ canvas { display: block; width: 100%; }
 .lens-read { margin-left: auto; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
 #lm { height: 330px; border-radius: 10px; border: 1px solid var(--line); }
 @media (max-width: 560px) { #lm { height: 300px; } .lens-box { padding: 14px 12px; } .lens-read { margin-left: 0; width: 100%; } }
+#lg { cursor: ew-resize; touch-action: none; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
+#lgHead[hidden], #lgNote[hidden], #lg[hidden] { display: none; }
 #lv { height: 90px; cursor: ew-resize; touch-action: none; }
 #lc { cursor: ew-resize; touch-action: none; }
 .lens-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
@@ -299,11 +301,14 @@ canvas { display: block; width: 100%; }
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
     </div>
+    <h3 id="lgHead">Gates and thresholds</h3>
+    <p class="note" id="lgNote">Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far.</p>
+    <canvas id="lg" role="img" aria-label="Gate steady-state curves versus membrane potential, with the present state of each gate"></canvas>
     <div class="lens-scale" id="lensScale"></div>
     <canvas id="lv" aria-label="Membrane potential with playhead and event ticks. Drag to scrub."></canvas>
     <input type="range" id="lensScrub" class="scrub" aria-label="Time in the recording" min="0" max="1" step="0.1" value="0">
     <div class="lens-events" id="lensEvents" aria-label="Events: click to jump"></div>
-    <p class="keys">Drag on the plots or the time slider to scrub. Keys: ← → step (Shift ×10) · , . previous/next event · Space play/pause · Home/End.</p>
+    <p class="keys">Drag on the voltage or concentration plots, or the time slider, to scrub. Keys: ← → step (Shift ×10) · , . previous/next event · Space play/pause · Home/End.</p>
     <h3>Ion concentrations over time</h3>
     <canvas id="lc" aria-label="Ion concentrations over time with playhead. Drag to scrub."></canvas>
     <p class="note" id="lensNote"></p>

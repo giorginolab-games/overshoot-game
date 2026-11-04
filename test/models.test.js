@@ -79,4 +79,21 @@ for (const L of C.LEVELS) {
   const a = F2.hh({ gNa: 120, gK: 36, gL: 0.3 }), b2 = M.hh({ gNa: 120, gK: 36, gL: 0.3 });
   ok(a.V.every((x, i) => x === b2.V[i]), 'factory source re-instantiates identically'); }
 
+// Lens gate curves: at rest the recorded gates sit on their steady-state curves; thresholds are ordered sensibly
+{ const at = (GC, arr, V) => arr[Math.round(V - GC.V[0])];
+  const cases = [['squid', null], ['pyramidal', null], ['thalamus', null], ['epi', 'lens']];
+  for (const [id, how] of cases) {
+    const L = C.LEVELS.find(l => l.id === id), R = how ? L.lens.sim(L.target) : L.sim(L.target);
+    ok(R.G && R.GC, `${id}: gate data`);
+    for (const c in R.G) {
+      const g = R.GC.ch[c], V0 = R.V[0];
+      ok(Math.abs(R.G[c].A[0] - at(R.GC, g.A, V0)) < 0.08, `${id}/${c}: resting activation on its curve`);
+      if (g.H) ok(Math.abs(R.G[c].H[0] - at(R.GC, g.H, V0)) < 0.08, `${id}/${c}: resting availability on its curve`);
+      for (const x of g.A) ok(x >= 0 && x <= 1, `${id}/${c}: A in [0,1]`);
+    } }
+  // delay: during the squid upstroke the Na⁺ activation gate lags its steady state
+  const L = C.LEVELS.find(l => l.id === 'squid'), R = L.sim(L.target); let lag = 0;
+  for (let i = 0; i < R.V.length; i++) lag = Math.max(lag, at(R.GC, R.GC.ch.INa.A, R.V[i]) - R.G.INa.A[i]);
+  ok(lag > 0.3, `HH Na activation lags its steady state during the spike (${lag.toFixed(2)})`); }
+
 console.log(`${n} checks passed`);

@@ -185,6 +185,8 @@ canvas { display: block; width: 100%; }
 .lens-read { margin-left: auto; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
 #lm { height: 330px; border-radius: 10px; border: 1px solid var(--line); }
 @media (max-width: 560px) { #lm { height: 300px; } .lens-box { padding: 14px 12px; } .lens-read { margin-left: 0; width: 100%; } }
+#lg { cursor: ew-resize; touch-action: none; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
+#lgHead[hidden], #lgNote[hidden], #lg[hidden] { display: none; }
 #lv { height: 90px; cursor: ew-resize; touch-action: none; }
 #lc { cursor: ew-resize; touch-action: none; }
 .lens-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
@@ -303,11 +305,14 @@ canvas { display: block; width: 100%; }
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
     </div>
+    <h3 id="lgHead">Gates and thresholds</h3>
+    <p class="note" id="lgNote">Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far.</p>
+    <canvas id="lg" role="img" aria-label="Gate steady-state curves versus membrane potential, with the present state of each gate"></canvas>
     <div class="lens-scale" id="lensScale"></div>
     <canvas id="lv" aria-label="Membrane potential with playhead and event ticks. Drag to scrub."></canvas>
     <input type="range" id="lensScrub" class="scrub" aria-label="Time in the recording" min="0" max="1" step="0.1" value="0">
     <div class="lens-events" id="lensEvents" aria-label="Events: click to jump"></div>
-    <p class="keys">Drag on the plots or the time slider to scrub. Keys: ← → step (Shift ×10) · , . previous/next event · Space play/pause · Home/End.</p>
+    <p class="keys">Drag on the voltage or concentration plots, or the time slider, to scrub. Keys: ← → step (Shift ×10) · , . previous/next event · Space play/pause · Home/End.</p>
     <h3>Ion concentrations over time</h3>
     <canvas id="lc" aria-label="Ion concentrations over time with playhead. Drag to scrub."></canvas>
     <p class="note" id="lensNote"></p>
@@ -330,6 +335,22 @@ function MODELS_FACTORY() {
     return Math.abs(x / k) < 1e-6 ? k * (1 + x / k / 2) : x / (1 - exp(-x / k));
   }
 
+  // ---------------- gate bookkeeping for the lens -------------------------------
+  // Each voltage-gated channel is summarised by two numbers in [0,1]: A, the activation open fraction (gate powers
+  // included, e.g. m³ or n⁴, so the curve is the real nonlinear one) and H, the availability left by inactivation
+  // (null when the channel does not inactivate). R.G[ch] holds A(t), H(t); R.GC holds the steady-state curves A∞(V), H∞(V).
+  const GRID = Float64Array.from({ length: 161 }, (_, i) => -100 + i);
+  function gateCurves(fn, names) {
+    const ch = {};
+    for (const c of names) { const hasH = fn(0)[c].H != null; ch[c] = { A: new Float64Array(GRID.length), H: hasH ? new Float64Array(GRID.length) : null }; }
+    GRID.forEach((V, i) => { const g = fn(V); for (const c of names) { ch[c].A[i] = g[c].A; if (ch[c].H) ch[c].H[i] = g[c].H; } });
+    return { V: GRID, ch };
+  }
+  const gateTraces = (GC, N) => { const G = {}; for (const c in GC.ch) G[c] = { A: new Float64Array(N), H: GC.ch[c].H ? new Float64Array(N) : null }; return G; };
+  const putGate = (G, c, k, A, H) => { G[c].A[k] = A; if (G[c].H) G[c].H[k] = H; };
+  const hhInf = V => { const r = hhRates(V); return { INa: { A: (r.am / (r.am + r.bm)) ** 3, H: r.ah / (r.ah + r.bh) }, IK: { A: (r.an / (r.an + r.bn)) ** 4, H: null } }; };
+  const HH_GC = gateCurves(hhInf, ['INa', 'IK']);
+
   // ---------------- Hodgkin–Huxley 1952 (squid axon, 6.3 °C) -------------
   function hh(p) {
     const gNa = p.gNa, gK = p.gK, gL = p.gL;
@@ -340,7 +361,7 @@ function MODELS_FACTORY() {
     const N = Math.round(T / out);
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N),
       I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
-      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) } };
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, G: gateTraces(HH_GC, N), GC: HH_GC };
     const total = 50 + T; let k = 0;
     for (let s = 0, ns = Math.round(total / dt); s < ns; s++) {
       const t = s * dt - 50;
@@ -350,7 +371,8 @@ function MODELS_FACTORY() {
       const INa = gNa * m * m * m * h * (V - ENa), IK = gK * n * n * n * n * (V - EK), IL = gL * (V - EL);
       const Ist = (t >= 2 && t < 2.5) ? 20 : 0;
       if (t >= 0 && k < N && Math.abs(t - k * out) < dt / 2) {
-        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n;
+        putGate(R.G, 'INa', k, m * m * m, h); putGate(R.G, 'IK', k, n * n * n * n); k++;
       }
       V += dt * (Ist - INa - IK - IL);
       let tau, inf;
@@ -376,7 +398,7 @@ function MODELS_FACTORY() {
     let m = r0.am / (r0.am + r0.bm), h = r0.ah / (r0.ah + r0.bh), n = r0.an / (r0.an + r0.bn);
     const R = { t: new Float64Array(N), V: new Float64Array(N), Itot: new Float64Array(N), stim: new Float64Array(N),
       I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
-      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, ENa };
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, G: gateTraces(HH_GC, N), GC: HH_GC, ENa };
     let k = 0;
     for (let sI = 0, ns = Math.round((pre + T) / dt); sI < ns && k < N; sI++) {
       const t = sI * dt, V = t < pre ? Vh : Vs;
@@ -384,7 +406,8 @@ function MODELS_FACTORY() {
         // µA/cm² for the lens (same units as current clamp); Itot in mA/cm²
         const INa = p.gNa * m * m * m * h * (V - ENa), IK = p.gK * n * n * n * n * (V - EK), IL = p.gL * (V - EL);
         R.t[k] = t; R.V[k] = V; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.Itot[k] = (INa + IK + IL) / 1000;
-        R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+        R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n;
+        putGate(R.G, 'INa', k, m * m * m, h); putGate(R.G, 'IK', k, n * n * n * n); k++;
       }
       const r = hhRates(V); let tau, inf;
       tau = 1 / (r.am + r.bm); inf = r.am * tau; m = inf + (m - inf) * exp(-dt / tau);
@@ -413,6 +436,15 @@ function MODELS_FACTORY() {
   // ------------- Pospischil et al. 2008 minimal cortical/thalamic models ----
   // INa, IKd (Traub-Miles), IM (Kv7, slow K), IT (Cav3, low-threshold Ca), leak.
   // Units: mS/cm², µA/cm², mV, ms.
+  function corticalInf(V, VT, Vx) {
+    const v1 = V - VT;
+    const am = 0.32 * vtrap(v1 - 13, 4), bm = 0.28 * vtrap(-(v1 - 40), 5);
+    const ah = 0.128 * exp(-(v1 - 17) / 18), bh = 4 / (1 + exp(-(v1 - 40) / 5));
+    const an = 0.032 * vtrap(v1 - 15, 5), bn = 0.5 * exp(-(v1 - 10) / 40);
+    const sinf = 1 / (1 + exp(-(V + Vx + 57) / 6.2));
+    return { INa: { A: (am / (am + bm)) ** 3, H: ah / (ah + bh) }, IKd: { A: (an / (an + bn)) ** 4, H: null },
+      IM: { A: 1 / (1 + exp(-(V + 35) / 10)), H: null }, IT: { A: sinf * sinf, H: 1 / (1 + exp((V + Vx + 81) / 4)) } };
+  }
   function cortical(p, protocol) {
     const gNa = p.gNa, gKd = p.gKd, gM = p.gM || 0, gT = p.gT || 0, gL = p.gL;
     const EL = protocol.EL, VT = protocol.VT, ENa = 50, EK = -90, ECa = 120, Vx = protocol.Vx || 0;
@@ -423,6 +455,7 @@ function MODELS_FACTORY() {
     const N = Math.round(T / out);
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {} };
     for (const c of protocol.currents) { R.I[c] = new Float64Array(N); R.O[c] = new Float64Array(N); }
+    R.GC = gateCurves(V => corticalInf(V, VT, Vx), protocol.currents.filter(c => c !== 'IL')); R.G = gateTraces(R.GC, N);
     let k = 0;
     for (let s = 0, ns = Math.round((pre + T) / dt); s < ns; s++) {
       const t = s * dt - pre;
@@ -441,6 +474,8 @@ function MODELS_FACTORY() {
         const all = { INa, IKd, IM, IT, IL };
         const op = { INa: m * m * m * h, IKd: n * n * n * n, IM: pM, IT: sinf * sinf * u, IL: 1 };
         for (const c of protocol.currents) { R.I[c][k] = all[c]; R.O[c][k] = op[c]; }
+        const gs = { INa: [m * m * m, h], IKd: [n * n * n * n], IM: [pM], IT: [sinf * sinf, u] };
+        for (const c in R.G) putGate(R.G, c, k, gs[c][0], gs[c][1]);
         k++;
       }
       V += dt * (Ist - INa - IKd - IM - IT - IL);
@@ -464,6 +499,24 @@ function MODELS_FACTORY() {
 
   // One Rush–Larsen/Euler step of a TNNP cell (all state except V). Returns total ionic current (pA/pF).
   // P: { GNa, GCaL, Gto, GKr, GKs, GK1, Ko, Nao, Cao, sqK, epi, clampNaK }. Last currents/gates go to TN.
+  // Steady-state gate values at V (shared by the integrator and the lens curves); written into the scratch object o.
+  const GI = {};
+  function tnnpInf(V, epi, o = GI) {
+    o.minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+    o.hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+    o.xr1inf = 1 / (1 + exp((-26 - V) / 7));
+    o.xr2inf = 1 / (1 + exp((V + 88) / 24));
+    o.xsinf = 1 / (1 + exp((-5 - V) / 14));
+    o.rinf = 1 / (1 + exp((20 - V) / 6));
+    o.sinf = epi ? 1 / (1 + exp((V + 20) / 5)) : 1 / (1 + exp((V + 28) / 5));
+    o.dinf = 1 / (1 + exp((-5 - V) / 7.5));
+    o.finf = 1 / (1 + exp((V + 20) / 7));
+    return o;
+  }
+  const tnnpGateCurves = epi => gateCurves(V => { const g = tnnpInf(V, epi, {});
+    return { INa: { A: g.minf ** 3, H: g.hinf ** 2 }, ICaL: { A: g.dinf, H: g.finf }, Ito: { A: g.rinf, H: g.sinf },
+      IKr: { A: g.xr1inf, H: g.xr2inf }, IKs: { A: g.xsinf ** 2, H: null } }; }, ['INa', 'ICaL', 'Ito', 'IKr', 'IKs']);
+  const TNNP_GC = { epi: tnnpGateCurves(true), endo: tnnpGateCurves(false) };
   const TN = { INa: 0, ICaL: 0, Ito: 0, IKr: 0, IKs: 0, IK1: 0, INaCa: 0, INaK: 0, oK1: 0 };
   function tnnpStep(c, P, dt, Ist) {
     const V = c.V, Cai = c.Cai, Nai = c.Nai, Ki = c.Ki, Ko = P.Ko, Nao = P.Nao, Cao = P.Cao;
@@ -503,9 +556,9 @@ function MODELS_FACTORY() {
       c.Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
     }
     // gates (Rush–Larsen)
-    const minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+    const gi = tnnpInf(V, P.epi), minf = gi.minf;
     const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
-    const hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+    const hinf = gi.hinf;
     let ah, bh, aj, bj;
     if (V < -40) {
       ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
@@ -518,25 +571,24 @@ function MODELS_FACTORY() {
     c.m = minf + (c.m - minf) * exp(-dt / (am * bm));
     c.h = hinf + (c.h - hinf) * exp(-dt * (ah + bh));
     c.j = hinf + (c.j - hinf) * exp(-dt * (aj + bj));
-    const xr1inf = 1 / (1 + exp((-26 - V) / 7));
+    const xr1inf = gi.xr1inf;
     const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
     c.xr1 = xr1inf + (c.xr1 - xr1inf) * exp(-dt / txr1);
-    const xr2inf = 1 / (1 + exp((V + 88) / 24));
+    const xr2inf = gi.xr2inf;
     const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
     c.xr2 = xr2inf + (c.xr2 - xr2inf) * exp(-dt / txr2);
-    const xsinf = 1 / (1 + exp((-5 - V) / 14));
+    const xsinf = gi.xsinf;
     const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
     c.xs = xsinf + (c.xs - xsinf) * exp(-dt / txs);
-    const rinf = 1 / (1 + exp((20 - V) / 6)), tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
+    const rinf = gi.rinf, tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
     c.r = rinf + (c.r - rinf) * exp(-dt / tr);
-    let sinf, ts;
-    if (P.epi) { sinf = 1 / (1 + exp((V + 20) / 5)); ts = 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3; }
-    else { sinf = 1 / (1 + exp((V + 28) / 5)); ts = 1000 * exp(-((V + 67) ** 2) / 1000) + 8; }
+    const sinf = gi.sinf;
+    const ts = P.epi ? 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3 : 1000 * exp(-((V + 67) ** 2) / 1000) + 8;
     c.s = sinf + (c.s - sinf) * exp(-dt / ts);
-    const dinf = 1 / (1 + exp((-5 - V) / 7.5));
+    const dinf = gi.dinf;
     const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
     c.d = dinf + (c.d - dinf) * exp(-dt / td);
-    const finf = 1 / (1 + exp((V + 20) / 7));
+    const finf = gi.finf;
     const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
     c.f = finf + (c.f - finf) * exp(-dt / tf);
     const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
@@ -567,6 +619,7 @@ function MODELS_FACTORY() {
     for (const n of names) R.I[n] = new Float64Array(N);
     for (const n of ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1']) R.O[n] = new Float64Array(N);
     for (const n of ['Cai', 'Casr', 'Nai', 'Ki']) R.C[n] = new Float64Array(N);
+    if (opts.gates) { R.GC = TNNP_GC[P.epi ? 'epi' : 'endo']; R.G = gateTraces(R.GC, N); }
     let t = 0, k = 0, Vmax = -1e9, dVmax = 0; const tEnd = (beats - 1) * BCL + T, rec0 = (beats - 1) * BCL;
     while (t < tEnd - 1e-9) {
       const tb = t % BCL;
@@ -577,6 +630,8 @@ function MODELS_FACTORY() {
       if (rec) {
         R.O.INa[k] = c.m * c.m * c.m * c.h * c.j; R.O.ICaL[k] = c.d * c.f * Math.min(c.fCa, 1); R.O.Ito[k] = c.r * c.s;
         R.O.IKr[k] = c.xr1 * c.xr2; R.O.IKs[k] = c.xs * c.xs;
+        if (R.G) { putGate(R.G, 'INa', k, c.m ** 3, c.h * c.j); putGate(R.G, 'ICaL', k, c.d, c.f); putGate(R.G, 'Ito', k, c.r, c.s);
+          putGate(R.G, 'IKr', k, c.xr1, c.xr2); putGate(R.G, 'IKs', k, c.xs * c.xs); }
         R.C.Cai[k] = c.Cai; R.C.Casr[k] = c.Casr; R.C.Nai[k] = c.Nai; R.C.Ki[k] = c.Ki;
       }
       const V = c.V;
@@ -851,7 +906,7 @@ const CORE = (() => {
     return out; // µM
   }
   const mul = (a, f, off = 0) => { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) o[i] = (a[i] - off) * f; return o; };
-  const tnnpFree = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 });
+  const tnnpFree = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1, gates: true });
   const LENS_SIMS = {
     cardFree: tnnpFree,
     hhStep: p => M.hhStep(0, p, { pre: 1, T: 8, out: 0.025 }),
@@ -1023,6 +1078,20 @@ const LENS_UI = (() => {
   let events = [], evCur = -2, stepMs = 0.1, tEnd = 1, scrubbing = false;
   const EV_COL = { stim: 'accent', v: 'you', phase: 'ink', conc: 'c-ca', level: 'gold' };
   const evColor = e => e.kind === 'ch' ? (CH_COL[e.ch] || 'muted') : (EV_COL[e.kind] || 'muted');
+  // ---- gate thresholds: where each gate's steady-state curve crosses one half ----
+  const LV_MR = 60; // right margin of the V(t) plot, room for the threshold labels
+  let gated = [];
+  function halfV(GC, arr, rising) {
+    for (let k = 1; k < arr.length; k++) if (rising ? (arr[k - 1] < .5 && arr[k] >= .5) : (arr[k - 1] > .5 && arr[k] <= .5))
+      return GC.V[k - 1] + (GC.V[k] - GC.V[k - 1]) * (.5 - arr[k - 1]) / (arr[k] - arr[k - 1]);
+    return NaN;
+  }
+  function buildGates() {
+    gated = R.G && R.GC ? L.currents.filter(c => R.G[c] && R.GC.ch[c]).map(c => {
+      const g = R.GC.ch[c]; return { c, vA: halfV(R.GC, g.A, true), vH: g.H ? halfV(R.GC, g.H, false) : NaN };
+    }) : [];
+    for (const id of ['lgHead', 'lgNote', 'lg']) $(id).hidden = !gated.length;
+  }
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
 
   function sizeCanvas(cv, h) {
@@ -1053,6 +1122,7 @@ const LENS_UI = (() => {
       NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
     }
     dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
+    buildGates();
     tm = 0; parts = []; acc = {}; phase = {}; playing = true; dir = 1; speedIdx = 1;
     tEnd = R.t[R.t.length - 1];
     stepMs = Math.max(R.t[1] - R.t[0], tEnd / 3000);
@@ -1268,12 +1338,12 @@ const LENS_UI = (() => {
     $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
-    drawTrace(i); drawConc(i);
+    drawTrace(i); drawGates(i); drawConc(i);
   }
 
   function drawTrace(i) {
     const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
-    const v = (L.lens.view || L.view), ml = 40, mr = 8, mt = 6, mb = 6;
+    const v = (L.lens.view || L.view), ml = 40, mr = LV_MR, mt = 6, mb = 6;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
     ctx.clearRect(0, 0, w, h);
@@ -1282,6 +1352,16 @@ const LENS_UI = (() => {
     ctx.stroke();
     ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (const V of [v.y[1] - (v.y[1] % 20 || 0), 0, Math.ceil(v.y[0] / 20) * 20]) ctx.fillText(V, ml - 5, Y(V));
+    // activation thresholds (half-activation voltage of each gated channel): dashed until V is above, solid after
+    { const Vnow = R.V[i], lab = [];
+      ctx.font = `700 9.5px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      for (const g of gated) { if (!(g.vA > v.y[0] && g.vA < v.y[1])) continue;
+        const above = Vnow >= g.vA, col = css(CH_COL[g.c] || 'muted'), y = Math.round(Y(g.vA)) + .5;
+        ctx.strokeStyle = col; ctx.lineWidth = above ? 1.8 : 1; ctx.globalAlpha = above ? .95 : .6; ctx.setLineDash(above ? [] : [5, 4]);
+        ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); ctx.stroke(); lab.push({ y, col, above, t: short(g.c) }); }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      lab.sort((a, b) => a.y - b.y); for (let k = 1; k < lab.length; k++) lab[k].y = Math.max(lab[k].y, lab[k - 1].y + 10);
+      for (const l of lab) { ctx.fillStyle = l.col; ctx.fillText((l.above ? '▲ ' : '') + l.t, w - mr + 4, l.y); } }
     ctx.strokeStyle = css('you'); ctx.lineWidth = 1.8; ctx.beginPath();
     for (let k = 0; k < R.t.length; k++) { const x = X(R.t[k]), y = Y(R.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
     events.forEach((e, j) => {
@@ -1293,6 +1373,75 @@ const LENS_UI = (() => {
     const x = X(tm);
     ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); ctx.stroke();
     ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(R.V[i]), 4.5, 0, 7); ctx.fill();
+  }
+
+  // ---- gate panel: steady-state curves, current state, and the lag between them ----
+  // Per channel: A∞(V) (activation, solid) and H∞(V) (availability, dashed) against V. The vertical line is the present V,
+  // the ring is where each gate is heading (steady state at this V), the filled marker is where it is now. The gap between
+  // them is the delay; the faint trail is the path (V(t), A(t)) so far, which loops around the curve.
+  const GCELL = 132, GMIN = 160;
+  const gateState = (g, i) => {
+    const A = R.G[g.c].A, H = R.G[g.c].H, a = A[i], d = A[Math.min(A.length - 1, i + 2)] - A[Math.max(0, i - 2)];
+    if (H && H[i] < 0.2) return ['inactivated', 'muted'];
+    if (a < 0.03) return ['closed', 'muted'];
+    if (d > 0.002 * Math.max(a, 0.2)) return ['opening', 'accent'];
+    if (d < -0.002 * Math.max(a, 0.2)) return ['closing', 'accent'];
+    return ['open', 'ink'];
+  };
+  function drawGates(i) {
+    const cv = $('lg'); if (!gated.length) return;
+    const w0 = cv.clientWidth || 600, cols = Math.max(1, Math.min(gated.length, Math.floor(w0 / GMIN))), rows = Math.ceil(gated.length / cols);
+    const { ctx, w, h } = sizeCanvas(cv, rows * GCELL), cw = w / cols, V = R.V[i], GC = R.GC;
+    ctx.clearRect(0, 0, w, h);
+    const nlast = Math.min(i, R.V.length - 1), step = Math.max(1, Math.floor(nlast / 500));
+    gated.forEach((g, n) => {
+      const cx = (n % cols) * cw, cy = Math.floor(n / cols) * GCELL, col = css(CH_COL[g.c] || 'muted');
+      const px = cx + 28, pw = cw - 40, py = cy + 22, ph = 62, X = x => px + (x + 100) / 160 * pw, Y = a => py + ph * (1 - a);
+      const G = R.G[g.c], at = (arr, v) => { const f = Math.max(0, Math.min(160, v + 100)), k = Math.min(159, Math.floor(f)); return arr[k] + (arr[k + 1] - arr[k]) * (f - k); };
+      const Ai = at(GC.ch[g.c].A, V), Hi = G.H ? at(GC.ch[g.c].H, V) : NaN, above = V >= g.vA;
+      // frame, activation zone (to the right of the half-activation voltage), grid
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, pw, ph);
+      if (isFinite(g.vA)) { ctx.fillStyle = col; ctx.globalAlpha = above ? .16 : .07; ctx.fillRect(X(g.vA), py, px + pw - X(g.vA), ph); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = css('grid-minor'); ctx.beginPath(); ctx.moveTo(px, Y(.5) + .5); ctx.lineTo(px + pw, Y(.5) + .5); ctx.moveTo(X(0) + .5, py); ctx.lineTo(X(0) + .5, py + ph); ctx.stroke();
+      // title and state
+      const [st, sc] = gateState(g, i);
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = col; ctx.font = `700 12px ${css('f-body')}`; ctx.fillText(short(g.c), cx + 4, cy + 3);
+      ctx.textAlign = 'right'; ctx.fillStyle = css(sc); ctx.font = `700 10.5px ${css('f-mono')}`; ctx.fillText(st, cx + cw - 10, cy + 5);
+      // axes labels
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText('1', px - 4, py + 2); ctx.fillText('0', px - 4, py + ph - 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'; for (const t of [-80, -40, 0, 40]) ctx.fillText(t, X(t), py + ph + 2);
+      // trail of (V, A) and (V, H)
+      ctx.lineWidth = 1.2; ctx.globalAlpha = .35;
+      for (const [arr, dash] of [[G.A, []], [G.H, [3, 3]]]) { if (!arr) continue; ctx.strokeStyle = col; ctx.setLineDash(dash); ctx.beginPath();
+        for (let k = 0; k <= nlast; k += step) { const x = X(R.V[k]), y = Y(arr[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.globalAlpha = 1; ctx.setLineDash([]);
+      // steady-state curves
+      for (const [arr, dash, lw] of [[GC.ch[g.c].A, [], 2.2], [GC.ch[g.c].H, [5, 3], 1.6]]) { if (!arr) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+        for (let k = 0; k < arr.length; k++) { const x = X(GC.V[k]), y = Y(arr[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.setLineDash([]);
+      // half-activation / half-inactivation marks on the axis
+      const tri = (v, filled, dia) => { if (!isFinite(v)) return; const x = X(v), y = py + ph; ctx.beginPath();
+        if (dia) { ctx.moveTo(x, y - 3); ctx.lineTo(x + 4, y + 1); ctx.lineTo(x, y + 5); ctx.lineTo(x - 4, y + 1); } else { ctx.moveTo(x, y - 1); ctx.lineTo(x - 4, y + 7); ctx.lineTo(x + 4, y + 7); } ctx.closePath();
+        ctx.fillStyle = filled ? col : css('panel'); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.stroke(); };
+      tri(g.vA, above, false); tri(g.vH, G.H && isFinite(g.vH) && V >= g.vH, true);
+      // present voltage
+      const xv = X(Math.max(-100, Math.min(60, V)));
+      ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(xv, py); ctx.lineTo(xv, py + ph); ctx.stroke();
+      // each gate: ring = where it is heading, marker = where it is, link = the lag
+      const mark = (arr, target, sq) => { if (!arr) return; const a = arr[i], y = Y(a), yt = Y(target);
+        if (Math.abs(y - yt) > 2) { ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xv, y); ctx.lineTo(xv, yt); ctx.stroke(); }
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.fillStyle = css('panel'); ctx.beginPath();
+        if (sq) ctx.rect(xv - 4, yt - 4, 8, 8); else ctx.arc(xv, yt, 4.5, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); if (sq) ctx.rect(xv - 3, y - 3, 6, 6); else ctx.arc(xv, y, 3.5, 0, 7); ctx.fill(); };
+      mark(G.H, Hi, true); mark(G.A, Ai, false);
+      // numbers
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = `10.5px ${css('f-mono')}`; ctx.fillStyle = css('ink');
+      const f2 = x => x.toFixed(2), vh = v => isFinite(v) ? `${v.toFixed(0)}` : '–';
+      ctx.fillText(`act ${f2(G.A[i])} → ${f2(Ai)}   V½ ${vh(g.vA)}`, cx + 4, cy + 99);
+      if (G.H) ctx.fillText(`avail ${f2(G.H[i])} → ${f2(Hi)}   V½ ${vh(g.vH)}`, cx + 4, cy + 113);
+    });
   }
 
   function drawConc(i) {
@@ -1323,7 +1472,7 @@ const LENS_UI = (() => {
   // ---- controls ----
   function scrub(e) {
     const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = (L.lens.view || L.view);
-    const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
+    const ml = cv.id === 'lc' ? 150 : 40, mr = cv.id === 'lc' ? 8 : LV_MR;
     const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
     jump(t, true);
   }

@@ -13,6 +13,20 @@ const LENS_UI = (() => {
   let events = [], evCur = -2, stepMs = 0.1, tEnd = 1, scrubbing = false;
   const EV_COL = { stim: 'accent', v: 'you', phase: 'ink', conc: 'c-ca', level: 'gold' };
   const evColor = e => e.kind === 'ch' ? (CH_COL[e.ch] || 'muted') : (EV_COL[e.kind] || 'muted');
+  // ---- gate thresholds: where each gate's steady-state curve crosses one half ----
+  const LV_MR = 60; // right margin of the V(t) plot, room for the threshold labels
+  let gated = [];
+  function halfV(GC, arr, rising) {
+    for (let k = 1; k < arr.length; k++) if (rising ? (arr[k - 1] < .5 && arr[k] >= .5) : (arr[k - 1] > .5 && arr[k] <= .5))
+      return GC.V[k - 1] + (GC.V[k] - GC.V[k - 1]) * (.5 - arr[k - 1]) / (arr[k] - arr[k - 1]);
+    return NaN;
+  }
+  function buildGates() {
+    gated = R.G && R.GC ? L.currents.filter(c => R.G[c] && R.GC.ch[c]).map(c => {
+      const g = R.GC.ch[c]; return { c, vA: halfV(R.GC, g.A, true), vH: g.H ? halfV(R.GC, g.H, false) : NaN };
+    }) : [];
+    for (const id of ['lgHead', 'lgNote', 'lg']) $(id).hidden = !gated.length;
+  }
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
 
   function sizeCanvas(cv, h) {
@@ -43,6 +57,7 @@ const LENS_UI = (() => {
       NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
     }
     dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
+    buildGates();
     tm = 0; parts = []; acc = {}; phase = {}; playing = true; dir = 1; speedIdx = 1;
     tEnd = R.t[R.t.length - 1];
     stepMs = Math.max(R.t[1] - R.t[0], tEnd / 3000);
@@ -258,12 +273,12 @@ const LENS_UI = (() => {
     $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
-    drawTrace(i); drawConc(i);
+    drawTrace(i); drawGates(i); drawConc(i);
   }
 
   function drawTrace(i) {
     const cv = $('lv'); const { ctx, w, h } = sizeCanvas(cv);
-    const v = (L.lens.view || L.view), ml = 40, mr = 8, mt = 6, mb = 6;
+    const v = (L.lens.view || L.view), ml = 40, mr = LV_MR, mt = 6, mb = 6;
     const X = t => ml + (t - v.x[0]) / (v.x[1] - v.x[0]) * (w - ml - mr);
     const Y = V => mt + (v.y[1] - V) / (v.y[1] - v.y[0]) * (h - mt - mb);
     ctx.clearRect(0, 0, w, h);
@@ -272,6 +287,16 @@ const LENS_UI = (() => {
     ctx.stroke();
     ctx.fillStyle = css('muted'); ctx.font = `10px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (const V of [v.y[1] - (v.y[1] % 20 || 0), 0, Math.ceil(v.y[0] / 20) * 20]) ctx.fillText(V, ml - 5, Y(V));
+    // activation thresholds (half-activation voltage of each gated channel): dashed until V is above, solid after
+    { const Vnow = R.V[i], lab = [];
+      ctx.font = `700 9.5px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      for (const g of gated) { if (!(g.vA > v.y[0] && g.vA < v.y[1])) continue;
+        const above = Vnow >= g.vA, col = css(CH_COL[g.c] || 'muted'), y = Math.round(Y(g.vA)) + .5;
+        ctx.strokeStyle = col; ctx.lineWidth = above ? 1.8 : 1; ctx.globalAlpha = above ? .95 : .6; ctx.setLineDash(above ? [] : [5, 4]);
+        ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); ctx.stroke(); lab.push({ y, col, above, t: short(g.c) }); }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      lab.sort((a, b) => a.y - b.y); for (let k = 1; k < lab.length; k++) lab[k].y = Math.max(lab[k].y, lab[k - 1].y + 10);
+      for (const l of lab) { ctx.fillStyle = l.col; ctx.fillText((l.above ? '▲ ' : '') + l.t, w - mr + 4, l.y); } }
     ctx.strokeStyle = css('you'); ctx.lineWidth = 1.8; ctx.beginPath();
     for (let k = 0; k < R.t.length; k++) { const x = X(R.t[k]), y = Y(R.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
     events.forEach((e, j) => {
@@ -283,6 +308,75 @@ const LENS_UI = (() => {
     const x = X(tm);
     ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, h - mb); ctx.stroke();
     ctx.fillStyle = css('accent'); ctx.beginPath(); ctx.arc(x, Y(R.V[i]), 4.5, 0, 7); ctx.fill();
+  }
+
+  // ---- gate panel: steady-state curves, current state, and the lag between them ----
+  // Per channel: A∞(V) (activation, solid) and H∞(V) (availability, dashed) against V. The vertical line is the present V,
+  // the ring is where each gate is heading (steady state at this V), the filled marker is where it is now. The gap between
+  // them is the delay; the faint trail is the path (V(t), A(t)) so far, which loops around the curve.
+  const GCELL = 132, GMIN = 160;
+  const gateState = (g, i) => {
+    const A = R.G[g.c].A, H = R.G[g.c].H, a = A[i], d = A[Math.min(A.length - 1, i + 2)] - A[Math.max(0, i - 2)];
+    if (H && H[i] < 0.2) return ['inactivated', 'muted'];
+    if (a < 0.03) return ['closed', 'muted'];
+    if (d > 0.002 * Math.max(a, 0.2)) return ['opening', 'accent'];
+    if (d < -0.002 * Math.max(a, 0.2)) return ['closing', 'accent'];
+    return ['open', 'ink'];
+  };
+  function drawGates(i) {
+    const cv = $('lg'); if (!gated.length) return;
+    const w0 = cv.clientWidth || 600, cols = Math.max(1, Math.min(gated.length, Math.floor(w0 / GMIN))), rows = Math.ceil(gated.length / cols);
+    const { ctx, w, h } = sizeCanvas(cv, rows * GCELL), cw = w / cols, V = R.V[i], GC = R.GC;
+    ctx.clearRect(0, 0, w, h);
+    const nlast = Math.min(i, R.V.length - 1), step = Math.max(1, Math.floor(nlast / 500));
+    gated.forEach((g, n) => {
+      const cx = (n % cols) * cw, cy = Math.floor(n / cols) * GCELL, col = css(CH_COL[g.c] || 'muted');
+      const px = cx + 28, pw = cw - 40, py = cy + 22, ph = 62, X = x => px + (x + 100) / 160 * pw, Y = a => py + ph * (1 - a);
+      const G = R.G[g.c], at = (arr, v) => { const f = Math.max(0, Math.min(160, v + 100)), k = Math.min(159, Math.floor(f)); return arr[k] + (arr[k + 1] - arr[k]) * (f - k); };
+      const Ai = at(GC.ch[g.c].A, V), Hi = G.H ? at(GC.ch[g.c].H, V) : NaN, above = V >= g.vA;
+      // frame, activation zone (to the right of the half-activation voltage), grid
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, pw, ph);
+      if (isFinite(g.vA)) { ctx.fillStyle = col; ctx.globalAlpha = above ? .16 : .07; ctx.fillRect(X(g.vA), py, px + pw - X(g.vA), ph); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = css('grid-minor'); ctx.beginPath(); ctx.moveTo(px, Y(.5) + .5); ctx.lineTo(px + pw, Y(.5) + .5); ctx.moveTo(X(0) + .5, py); ctx.lineTo(X(0) + .5, py + ph); ctx.stroke();
+      // title and state
+      const [st, sc] = gateState(g, i);
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = col; ctx.font = `700 12px ${css('f-body')}`; ctx.fillText(short(g.c), cx + 4, cy + 3);
+      ctx.textAlign = 'right'; ctx.fillStyle = css(sc); ctx.font = `700 10.5px ${css('f-mono')}`; ctx.fillText(st, cx + cw - 10, cy + 5);
+      // axes labels
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText('1', px - 4, py + 2); ctx.fillText('0', px - 4, py + ph - 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'; for (const t of [-80, -40, 0, 40]) ctx.fillText(t, X(t), py + ph + 2);
+      // trail of (V, A) and (V, H)
+      ctx.lineWidth = 1.2; ctx.globalAlpha = .35;
+      for (const [arr, dash] of [[G.A, []], [G.H, [3, 3]]]) { if (!arr) continue; ctx.strokeStyle = col; ctx.setLineDash(dash); ctx.beginPath();
+        for (let k = 0; k <= nlast; k += step) { const x = X(R.V[k]), y = Y(arr[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.globalAlpha = 1; ctx.setLineDash([]);
+      // steady-state curves
+      for (const [arr, dash, lw] of [[GC.ch[g.c].A, [], 2.2], [GC.ch[g.c].H, [5, 3], 1.6]]) { if (!arr) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+        for (let k = 0; k < arr.length; k++) { const x = X(GC.V[k]), y = Y(arr[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.setLineDash([]);
+      // half-activation / half-inactivation marks on the axis
+      const tri = (v, filled, dia) => { if (!isFinite(v)) return; const x = X(v), y = py + ph; ctx.beginPath();
+        if (dia) { ctx.moveTo(x, y - 3); ctx.lineTo(x + 4, y + 1); ctx.lineTo(x, y + 5); ctx.lineTo(x - 4, y + 1); } else { ctx.moveTo(x, y - 1); ctx.lineTo(x - 4, y + 7); ctx.lineTo(x + 4, y + 7); } ctx.closePath();
+        ctx.fillStyle = filled ? col : css('panel'); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.stroke(); };
+      tri(g.vA, above, false); tri(g.vH, G.H && isFinite(g.vH) && V >= g.vH, true);
+      // present voltage
+      const xv = X(Math.max(-100, Math.min(60, V)));
+      ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(xv, py); ctx.lineTo(xv, py + ph); ctx.stroke();
+      // each gate: ring = where it is heading, marker = where it is, link = the lag
+      const mark = (arr, target, sq) => { if (!arr) return; const a = arr[i], y = Y(a), yt = Y(target);
+        if (Math.abs(y - yt) > 2) { ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xv, y); ctx.lineTo(xv, yt); ctx.stroke(); }
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.fillStyle = css('panel'); ctx.beginPath();
+        if (sq) ctx.rect(xv - 4, yt - 4, 8, 8); else ctx.arc(xv, yt, 4.5, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); if (sq) ctx.rect(xv - 3, y - 3, 6, 6); else ctx.arc(xv, y, 3.5, 0, 7); ctx.fill(); };
+      mark(G.H, Hi, true); mark(G.A, Ai, false);
+      // numbers
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = `10.5px ${css('f-mono')}`; ctx.fillStyle = css('ink');
+      const f2 = x => x.toFixed(2), vh = v => isFinite(v) ? `${v.toFixed(0)}` : '–';
+      ctx.fillText(`act ${f2(G.A[i])} → ${f2(Ai)}   V½ ${vh(g.vA)}`, cx + 4, cy + 99);
+      if (G.H) ctx.fillText(`avail ${f2(G.H[i])} → ${f2(Hi)}   V½ ${vh(g.vH)}`, cx + 4, cy + 113);
+    });
   }
 
   function drawConc(i) {
@@ -313,7 +407,7 @@ const LENS_UI = (() => {
   // ---- controls ----
   function scrub(e) {
     const cv = e.currentTarget, r = cv.getBoundingClientRect(), v = (L.lens.view || L.view);
-    const ml = cv.id === 'lc' ? 150 : 40, mr = 8;
+    const ml = cv.id === 'lc' ? 150 : 40, mr = cv.id === 'lc' ? 8 : LV_MR;
     const t = v.x[0] + (e.clientX - r.left - ml) / (r.width - ml - mr) * (v.x[1] - v.x[0]);
     jump(t, true);
   }

@@ -11,6 +11,22 @@ function MODELS_FACTORY() {
     return Math.abs(x / k) < 1e-6 ? k * (1 + x / k / 2) : x / (1 - exp(-x / k));
   }
 
+  // ---------------- gate bookkeeping for the lens -------------------------------
+  // Each voltage-gated channel is summarised by two numbers in [0,1]: A, the activation open fraction (gate powers
+  // included, e.g. m³ or n⁴, so the curve is the real nonlinear one) and H, the availability left by inactivation
+  // (null when the channel does not inactivate). R.G[ch] holds A(t), H(t); R.GC holds the steady-state curves A∞(V), H∞(V).
+  const GRID = Float64Array.from({ length: 161 }, (_, i) => -100 + i);
+  function gateCurves(fn, names) {
+    const ch = {};
+    for (const c of names) { const hasH = fn(0)[c].H != null; ch[c] = { A: new Float64Array(GRID.length), H: hasH ? new Float64Array(GRID.length) : null }; }
+    GRID.forEach((V, i) => { const g = fn(V); for (const c of names) { ch[c].A[i] = g[c].A; if (ch[c].H) ch[c].H[i] = g[c].H; } });
+    return { V: GRID, ch };
+  }
+  const gateTraces = (GC, N) => { const G = {}; for (const c in GC.ch) G[c] = { A: new Float64Array(N), H: GC.ch[c].H ? new Float64Array(N) : null }; return G; };
+  const putGate = (G, c, k, A, H) => { G[c].A[k] = A; if (G[c].H) G[c].H[k] = H; };
+  const hhInf = V => { const r = hhRates(V); return { INa: { A: (r.am / (r.am + r.bm)) ** 3, H: r.ah / (r.ah + r.bh) }, IK: { A: (r.an / (r.an + r.bn)) ** 4, H: null } }; };
+  const HH_GC = gateCurves(hhInf, ['INa', 'IK']);
+
   // ---------------- Hodgkin–Huxley 1952 (squid axon, 6.3 °C) -------------
   function hh(p) {
     const gNa = p.gNa, gK = p.gK, gL = p.gL;
@@ -21,7 +37,7 @@ function MODELS_FACTORY() {
     const N = Math.round(T / out);
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N),
       I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
-      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) } };
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, G: gateTraces(HH_GC, N), GC: HH_GC };
     const total = 50 + T; let k = 0;
     for (let s = 0, ns = Math.round(total / dt); s < ns; s++) {
       const t = s * dt - 50;
@@ -31,7 +47,8 @@ function MODELS_FACTORY() {
       const INa = gNa * m * m * m * h * (V - ENa), IK = gK * n * n * n * n * (V - EK), IL = gL * (V - EL);
       const Ist = (t >= 2 && t < 2.5) ? 20 : 0;
       if (t >= 0 && k < N && Math.abs(t - k * out) < dt / 2) {
-        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+        R.t[k] = t; R.V[k] = V; R.stim[k] = Ist; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n;
+        putGate(R.G, 'INa', k, m * m * m, h); putGate(R.G, 'IK', k, n * n * n * n); k++;
       }
       V += dt * (Ist - INa - IK - IL);
       let tau, inf;
@@ -57,7 +74,7 @@ function MODELS_FACTORY() {
     let m = r0.am / (r0.am + r0.bm), h = r0.ah / (r0.ah + r0.bh), n = r0.an / (r0.an + r0.bn);
     const R = { t: new Float64Array(N), V: new Float64Array(N), Itot: new Float64Array(N), stim: new Float64Array(N),
       I: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N) },
-      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, ENa };
+      O: { INa: new Float64Array(N), IK: new Float64Array(N), IL: new Float64Array(N).fill(1) }, G: gateTraces(HH_GC, N), GC: HH_GC, ENa };
     let k = 0;
     for (let sI = 0, ns = Math.round((pre + T) / dt); sI < ns && k < N; sI++) {
       const t = sI * dt, V = t < pre ? Vh : Vs;
@@ -65,7 +82,8 @@ function MODELS_FACTORY() {
         // µA/cm² for the lens (same units as current clamp); Itot in mA/cm²
         const INa = p.gNa * m * m * m * h * (V - ENa), IK = p.gK * n * n * n * n * (V - EK), IL = p.gL * (V - EL);
         R.t[k] = t; R.V[k] = V; R.I.INa[k] = INa; R.I.IK[k] = IK; R.I.IL[k] = IL; R.Itot[k] = (INa + IK + IL) / 1000;
-        R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n; k++;
+        R.O.INa[k] = m * m * m * h; R.O.IK[k] = n * n * n * n;
+        putGate(R.G, 'INa', k, m * m * m, h); putGate(R.G, 'IK', k, n * n * n * n); k++;
       }
       const r = hhRates(V); let tau, inf;
       tau = 1 / (r.am + r.bm); inf = r.am * tau; m = inf + (m - inf) * exp(-dt / tau);
@@ -94,6 +112,15 @@ function MODELS_FACTORY() {
   // ------------- Pospischil et al. 2008 minimal cortical/thalamic models ----
   // INa, IKd (Traub-Miles), IM (Kv7, slow K), IT (Cav3, low-threshold Ca), leak.
   // Units: mS/cm², µA/cm², mV, ms.
+  function corticalInf(V, VT, Vx) {
+    const v1 = V - VT;
+    const am = 0.32 * vtrap(v1 - 13, 4), bm = 0.28 * vtrap(-(v1 - 40), 5);
+    const ah = 0.128 * exp(-(v1 - 17) / 18), bh = 4 / (1 + exp(-(v1 - 40) / 5));
+    const an = 0.032 * vtrap(v1 - 15, 5), bn = 0.5 * exp(-(v1 - 10) / 40);
+    const sinf = 1 / (1 + exp(-(V + Vx + 57) / 6.2));
+    return { INa: { A: (am / (am + bm)) ** 3, H: ah / (ah + bh) }, IKd: { A: (an / (an + bn)) ** 4, H: null },
+      IM: { A: 1 / (1 + exp(-(V + 35) / 10)), H: null }, IT: { A: sinf * sinf, H: 1 / (1 + exp((V + Vx + 81) / 4)) } };
+  }
   function cortical(p, protocol) {
     const gNa = p.gNa, gKd = p.gKd, gM = p.gM || 0, gT = p.gT || 0, gL = p.gL;
     const EL = protocol.EL, VT = protocol.VT, ENa = 50, EK = -90, ECa = 120, Vx = protocol.Vx || 0;
@@ -104,6 +131,7 @@ function MODELS_FACTORY() {
     const N = Math.round(T / out);
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {} };
     for (const c of protocol.currents) { R.I[c] = new Float64Array(N); R.O[c] = new Float64Array(N); }
+    R.GC = gateCurves(V => corticalInf(V, VT, Vx), protocol.currents.filter(c => c !== 'IL')); R.G = gateTraces(R.GC, N);
     let k = 0;
     for (let s = 0, ns = Math.round((pre + T) / dt); s < ns; s++) {
       const t = s * dt - pre;
@@ -122,6 +150,8 @@ function MODELS_FACTORY() {
         const all = { INa, IKd, IM, IT, IL };
         const op = { INa: m * m * m * h, IKd: n * n * n * n, IM: pM, IT: sinf * sinf * u, IL: 1 };
         for (const c of protocol.currents) { R.I[c][k] = all[c]; R.O[c][k] = op[c]; }
+        const gs = { INa: [m * m * m, h], IKd: [n * n * n * n], IM: [pM], IT: [sinf * sinf, u] };
+        for (const c in R.G) putGate(R.G, c, k, gs[c][0], gs[c][1]);
         k++;
       }
       V += dt * (Ist - INa - IKd - IM - IT - IL);
@@ -145,6 +175,24 @@ function MODELS_FACTORY() {
 
   // One Rush–Larsen/Euler step of a TNNP cell (all state except V). Returns total ionic current (pA/pF).
   // P: { GNa, GCaL, Gto, GKr, GKs, GK1, Ko, Nao, Cao, sqK, epi, clampNaK }. Last currents/gates go to TN.
+  // Steady-state gate values at V (shared by the integrator and the lens curves); written into the scratch object o.
+  const GI = {};
+  function tnnpInf(V, epi, o = GI) {
+    o.minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+    o.hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+    o.xr1inf = 1 / (1 + exp((-26 - V) / 7));
+    o.xr2inf = 1 / (1 + exp((V + 88) / 24));
+    o.xsinf = 1 / (1 + exp((-5 - V) / 14));
+    o.rinf = 1 / (1 + exp((20 - V) / 6));
+    o.sinf = epi ? 1 / (1 + exp((V + 20) / 5)) : 1 / (1 + exp((V + 28) / 5));
+    o.dinf = 1 / (1 + exp((-5 - V) / 7.5));
+    o.finf = 1 / (1 + exp((V + 20) / 7));
+    return o;
+  }
+  const tnnpGateCurves = epi => gateCurves(V => { const g = tnnpInf(V, epi, {});
+    return { INa: { A: g.minf ** 3, H: g.hinf ** 2 }, ICaL: { A: g.dinf, H: g.finf }, Ito: { A: g.rinf, H: g.sinf },
+      IKr: { A: g.xr1inf, H: g.xr2inf }, IKs: { A: g.xsinf ** 2, H: null } }; }, ['INa', 'ICaL', 'Ito', 'IKr', 'IKs']);
+  const TNNP_GC = { epi: tnnpGateCurves(true), endo: tnnpGateCurves(false) };
   const TN = { INa: 0, ICaL: 0, Ito: 0, IKr: 0, IKs: 0, IK1: 0, INaCa: 0, INaK: 0, oK1: 0 };
   function tnnpStep(c, P, dt, Ist) {
     const V = c.V, Cai = c.Cai, Nai = c.Nai, Ki = c.Ki, Ko = P.Ko, Nao = P.Nao, Cao = P.Cao;
@@ -184,9 +232,9 @@ function MODELS_FACTORY() {
       c.Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
     }
     // gates (Rush–Larsen)
-    const minf = 1 / ((1 + exp((-56.86 - V) / 9.03)) ** 2);
+    const gi = tnnpInf(V, P.epi), minf = gi.minf;
     const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
-    const hinf = 1 / ((1 + exp((V + 71.55) / 7.43)) ** 2);
+    const hinf = gi.hinf;
     let ah, bh, aj, bj;
     if (V < -40) {
       ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
@@ -199,25 +247,24 @@ function MODELS_FACTORY() {
     c.m = minf + (c.m - minf) * exp(-dt / (am * bm));
     c.h = hinf + (c.h - hinf) * exp(-dt * (ah + bh));
     c.j = hinf + (c.j - hinf) * exp(-dt * (aj + bj));
-    const xr1inf = 1 / (1 + exp((-26 - V) / 7));
+    const xr1inf = gi.xr1inf;
     const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
     c.xr1 = xr1inf + (c.xr1 - xr1inf) * exp(-dt / txr1);
-    const xr2inf = 1 / (1 + exp((V + 88) / 24));
+    const xr2inf = gi.xr2inf;
     const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
     c.xr2 = xr2inf + (c.xr2 - xr2inf) * exp(-dt / txr2);
-    const xsinf = 1 / (1 + exp((-5 - V) / 14));
+    const xsinf = gi.xsinf;
     const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
     c.xs = xsinf + (c.xs - xsinf) * exp(-dt / txs);
-    const rinf = 1 / (1 + exp((20 - V) / 6)), tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
+    const rinf = gi.rinf, tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
     c.r = rinf + (c.r - rinf) * exp(-dt / tr);
-    let sinf, ts;
-    if (P.epi) { sinf = 1 / (1 + exp((V + 20) / 5)); ts = 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3; }
-    else { sinf = 1 / (1 + exp((V + 28) / 5)); ts = 1000 * exp(-((V + 67) ** 2) / 1000) + 8; }
+    const sinf = gi.sinf;
+    const ts = P.epi ? 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3 : 1000 * exp(-((V + 67) ** 2) / 1000) + 8;
     c.s = sinf + (c.s - sinf) * exp(-dt / ts);
-    const dinf = 1 / (1 + exp((-5 - V) / 7.5));
+    const dinf = gi.dinf;
     const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
     c.d = dinf + (c.d - dinf) * exp(-dt / td);
-    const finf = 1 / (1 + exp((V + 20) / 7));
+    const finf = gi.finf;
     const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
     c.f = finf + (c.f - finf) * exp(-dt / tf);
     const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
@@ -248,6 +295,7 @@ function MODELS_FACTORY() {
     for (const n of names) R.I[n] = new Float64Array(N);
     for (const n of ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1']) R.O[n] = new Float64Array(N);
     for (const n of ['Cai', 'Casr', 'Nai', 'Ki']) R.C[n] = new Float64Array(N);
+    if (opts.gates) { R.GC = TNNP_GC[P.epi ? 'epi' : 'endo']; R.G = gateTraces(R.GC, N); }
     let t = 0, k = 0, Vmax = -1e9, dVmax = 0; const tEnd = (beats - 1) * BCL + T, rec0 = (beats - 1) * BCL;
     while (t < tEnd - 1e-9) {
       const tb = t % BCL;
@@ -258,6 +306,8 @@ function MODELS_FACTORY() {
       if (rec) {
         R.O.INa[k] = c.m * c.m * c.m * c.h * c.j; R.O.ICaL[k] = c.d * c.f * Math.min(c.fCa, 1); R.O.Ito[k] = c.r * c.s;
         R.O.IKr[k] = c.xr1 * c.xr2; R.O.IKs[k] = c.xs * c.xs;
+        if (R.G) { putGate(R.G, 'INa', k, c.m ** 3, c.h * c.j); putGate(R.G, 'ICaL', k, c.d, c.f); putGate(R.G, 'Ito', k, c.r, c.s);
+          putGate(R.G, 'IKr', k, c.xr1, c.xr2); putGate(R.G, 'IKs', k, c.xs * c.xs); }
         R.C.Cai[k] = c.Cai; R.C.Casr[k] = c.Casr; R.C.Nai[k] = c.Nai; R.C.Ki[k] = c.Ki;
       }
       const V = c.V;

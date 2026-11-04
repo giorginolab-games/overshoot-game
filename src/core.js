@@ -155,7 +155,7 @@ const CORE = (() => {
     return out; // µM
   }
   const mul = (a, f, off = 0) => { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) o[i] = (a[i] - off) * f; return o; };
-  const tnnpFree = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 });
+  const tnnpFree = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1, gates: true });
   const LENS_SIMS = {
     cardFree: tnnpFree,
     hhStep: p => M.hhStep(0, p, { pre: 1, T: 8, out: 0.025 }),
