@@ -96,4 +96,20 @@ for (const L of C.LEVELS) {
   for (let i = 0; i < R.V.length; i++) lag = Math.max(lag, at(R.GC, R.GC.ch.INa.A, R.V[i]) - R.G.INa.A[i]);
   ok(lag > 0.3, `HH Na activation lags its steady state during the spike (${lag.toFixed(2)})`); }
 
+// Lens τ curves agree with the integrator: one tiny step relaxes each gate with exactly the tabulated time constant
+{ const P = M.tnnpParams({ GNa: 14.838, GCaL: 1.75e-4, Gto: 0.294, GKr: 0.096, GKs: 0.245, GK1: 5.405 }, 'epi', true);
+  for (const V of [-80, -50, -20, 10, 40]) {
+    const c = Object.assign({}, M.TNNP_INIT, { V, m: 0.3, h: 0.4, j: 0.5, xr1: 0.3, xr2: 0.4, xs: 0.3, r: 0.3, s: 0.4, d: 0.3, f: 0.4 }), c0 = Object.assign({}, c), dt = 1e-4;
+    const inf = M.tnnpInf(V, true, {}), tau = M.tnnpTau(V, true, {}); M.tnnpStep(c, P, dt, 0);
+    const eff = (k, x) => -dt / Math.log((c[k] - x) / (c0[k] - x));
+    const chk = (k, x, t) => ok(Math.abs(eff(k, x) / t - 1) < 0.01, `τ_${k} at ${V} mV: ${eff(k, x).toFixed(3)} vs ${t.toFixed(3)} ms`);
+    chk('m', inf.minf, tau.tm); chk('h', inf.hinf, 1 / tau.kh); chk('j', inf.hinf, 1 / tau.kj); chk('xr1', inf.xr1inf, tau.txr1); chk('xr2', inf.xr2inf, tau.txr2);
+    chk('xs', inf.xsinf, tau.txs); chk('r', inf.rinf, tau.tr); chk('s', inf.sinf, tau.ts); chk('d', inf.dinf, tau.td); chk('f', inf.finf, tau.tf);
+  } }
+// τ curves exist and are positive for every gate that has one
+for (const id of ['squid', 'pyramidal', 'thalamus', 'epi']) {
+  const L = C.LEVELS.find(l => l.id === id), R = L.lens.sim(L.target);
+  for (const c in R.GC.ch) for (const k of ['tA', 'tH']) { const a = R.GC.ch[c][k]; if (a) ok(a.every(x => x > 0 && isFinite(x)), `${id}/${c}: ${k} positive`); }
+}
+
 console.log(`${n} checks passed`);

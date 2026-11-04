@@ -18,13 +18,17 @@ function MODELS_FACTORY() {
   const GRID = Float64Array.from({ length: 161 }, (_, i) => -100 + i);
   function gateCurves(fn, names) {
     const ch = {};
-    for (const c of names) { const hasH = fn(0)[c].H != null; ch[c] = { A: new Float64Array(GRID.length), H: hasH ? new Float64Array(GRID.length) : null }; }
-    GRID.forEach((V, i) => { const g = fn(V); for (const c of names) { ch[c].A[i] = g[c].A; if (ch[c].H) ch[c].H[i] = g[c].H; } });
+    // tA, tH: time constants (ms) of the activation and inactivation gates, null when instantaneous / absent
+    const mk = has => has ? new Float64Array(GRID.length) : null;
+    for (const c of names) { const g0 = fn(0)[c]; ch[c] = { A: mk(1), H: mk(g0.H != null), tA: mk(g0.tA != null), tH: mk(g0.tH != null) }; }
+    GRID.forEach((V, i) => { const g = fn(V); for (const c of names) for (const k of ['A', 'H', 'tA', 'tH']) if (ch[c][k]) ch[c][k][i] = g[c][k]; });
     return { V: GRID, ch };
   }
   const gateTraces = (GC, N) => { const G = {}; for (const c in GC.ch) G[c] = { A: new Float64Array(N), H: GC.ch[c].H ? new Float64Array(N) : null }; return G; };
   const putGate = (G, c, k, A, H) => { G[c].A[k] = A; if (G[c].H) G[c].H[k] = H; };
-  const hhInf = V => { const r = hhRates(V); return { INa: { A: (r.am / (r.am + r.bm)) ** 3, H: r.ah / (r.ah + r.bh) }, IK: { A: (r.an / (r.an + r.bn)) ** 4, H: null } }; };
+  const hhInf = V => { const r = hhRates(V); return {
+    INa: { A: (r.am / (r.am + r.bm)) ** 3, H: r.ah / (r.ah + r.bh), tA: 1 / (r.am + r.bm), tH: 1 / (r.ah + r.bh) },
+    IK: { A: (r.an / (r.an + r.bn)) ** 4, H: null, tA: 1 / (r.an + r.bn) } }; };
   const HH_GC = gateCurves(hhInf, ['INa', 'IK']);
 
   // ---------------- Hodgkin–Huxley 1952 (squid axon, 6.3 °C) -------------
@@ -112,14 +116,17 @@ function MODELS_FACTORY() {
   // ------------- Pospischil et al. 2008 minimal cortical/thalamic models ----
   // INa, IKd (Traub-Miles), IM (Kv7, slow K), IT (Cav3, low-threshold Ca), leak.
   // Units: mS/cm², µA/cm², mV, ms.
-  function corticalInf(V, VT, Vx) {
+  function corticalInf(V, VT, Vx, tauMax) {
     const v1 = V - VT;
     const am = 0.32 * vtrap(v1 - 13, 4), bm = 0.28 * vtrap(-(v1 - 40), 5);
     const ah = 0.128 * exp(-(v1 - 17) / 18), bh = 4 / (1 + exp(-(v1 - 40) / 5));
     const an = 0.032 * vtrap(v1 - 15, 5), bn = 0.5 * exp(-(v1 - 10) / 40);
     const sinf = 1 / (1 + exp(-(V + Vx + 57) / 6.2));
-    return { INa: { A: (am / (am + bm)) ** 3, H: ah / (ah + bh) }, IKd: { A: (an / (an + bn)) ** 4, H: null },
-      IM: { A: 1 / (1 + exp(-(V + 35) / 10)), H: null }, IT: { A: sinf * sinf, H: 1 / (1 + exp((V + Vx + 81) / 4)) } };
+    const taup = tauMax / (3.3 * exp((V + 35) / 20) + exp(-(V + 35) / 20));
+    const tauu = (30.8 + (211.4 + exp((V + Vx + 113.2) / 5)) / (1 + exp((V + Vx + 84) / 3.2))) / 3.7;
+    return { INa: { A: (am / (am + bm)) ** 3, H: ah / (ah + bh), tA: 1 / (am + bm), tH: 1 / (ah + bh) },
+      IKd: { A: (an / (an + bn)) ** 4, H: null, tA: 1 / (an + bn) },
+      IM: { A: 1 / (1 + exp(-(V + 35) / 10)), H: null, tA: taup }, IT: { A: sinf * sinf, H: 1 / (1 + exp((V + Vx + 81) / 4)), tH: tauu } };
   }
   function cortical(p, protocol) {
     const gNa = p.gNa, gKd = p.gKd, gM = p.gM || 0, gT = p.gT || 0, gL = p.gL;
@@ -131,7 +138,7 @@ function MODELS_FACTORY() {
     const N = Math.round(T / out);
     const R = { t: new Float64Array(N), V: new Float64Array(N), stim: new Float64Array(N), I: {}, O: {} };
     for (const c of protocol.currents) { R.I[c] = new Float64Array(N); R.O[c] = new Float64Array(N); }
-    R.GC = gateCurves(V => corticalInf(V, VT, Vx), protocol.currents.filter(c => c !== 'IL')); R.G = gateTraces(R.GC, N);
+    R.GC = gateCurves(V => corticalInf(V, VT, Vx, tauMax), protocol.currents.filter(c => c !== 'IL')); R.G = gateTraces(R.GC, N);
     let k = 0;
     for (let s = 0, ns = Math.round((pre + T) / dt); s < ns; s++) {
       const t = s * dt - pre;
@@ -189,9 +196,28 @@ function MODELS_FACTORY() {
     o.finf = 1 / (1 + exp((V + 20) / 7));
     return o;
   }
-  const tnnpGateCurves = epi => gateCurves(V => { const g = tnnpInf(V, epi, {});
-    return { INa: { A: g.minf ** 3, H: g.hinf ** 2 }, ICaL: { A: g.dinf, H: g.finf }, Ito: { A: g.rinf, H: g.sinf },
-      IKr: { A: g.xr1inf, H: g.xr2inf }, IKs: { A: g.xsinf ** 2, H: null } }; }, ['INa', 'ICaL', 'Ito', 'IKr', 'IKs']);
+  // Time constants (ms) at V; kh = ah+bh is the rate constant of the fast Na⁺ inactivation gate h, kj that of the slow gate j.
+  function tnnpTau(V, epi, o = GI) {
+    const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
+    o.tm = am * bm;
+    if (V < -40) {
+      o.kh = 0.057 * exp(-(V + 80) / 6.8) + 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
+      o.kj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23))) +
+        0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
+    } else { o.kh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1))); o.kj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32))); }
+    o.txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
+    o.txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
+    o.txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
+    o.tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
+    o.ts = epi ? 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3 : 1000 * exp(-((V + 67) ** 2) / 1000) + 8;
+    o.td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
+    o.tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
+    return o;
+  }
+  const tnnpGateCurves = epi => gateCurves(V => { const g = tnnpInf(V, epi, {}), t = tnnpTau(V, epi, {});
+    return { INa: { A: g.minf ** 3, H: g.hinf ** 2, tA: t.tm, tH: 1 / t.kh }, ICaL: { A: g.dinf, H: g.finf, tA: t.td, tH: t.tf },
+      Ito: { A: g.rinf, H: g.sinf, tA: t.tr, tH: t.ts }, IKr: { A: g.xr1inf, H: g.xr2inf, tA: t.txr1, tH: t.txr2 },
+      IKs: { A: g.xsinf ** 2, H: null, tA: t.txs } }; }, ['INa', 'ICaL', 'Ito', 'IKr', 'IKs']);
   const TNNP_GC = { epi: tnnpGateCurves(true), endo: tnnpGateCurves(false) };
   const TN = { INa: 0, ICaL: 0, Ito: 0, IKr: 0, IKs: 0, IK1: 0, INaCa: 0, INaK: 0, oK1: 0 };
   function tnnpStep(c, P, dt, Ist) {
@@ -419,7 +445,7 @@ function MODELS_FACTORY() {
       GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
   }
 
-  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
+  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpStep, tnnpInf, tnnpTau, tnnpParams, TNNP_INIT, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 

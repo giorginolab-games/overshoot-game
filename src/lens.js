@@ -314,7 +314,7 @@ const LENS_UI = (() => {
   // Per channel: A∞(V) (activation, solid) and H∞(V) (availability, dashed) against V. The vertical line is the present V,
   // the ring is where each gate is heading (steady state at this V), the filled marker is where it is now. The gap between
   // them is the delay; the faint trail is the path (V(t), A(t)) so far, which loops around the curve.
-  const GCELL = 132, GMIN = 160;
+  const GCELL = 214, GMIN = 160;
   const gateState = (g, i) => {
     const A = R.G[g.c].A, H = R.G[g.c].H, a = A[i], d = A[Math.min(A.length - 1, i + 2)] - A[Math.max(0, i - 2)];
     if (H && H[i] < 0.2) return ['inactivated', 'muted'];
@@ -376,6 +376,33 @@ const LENS_UI = (() => {
       const f2 = x => x.toFixed(2), vh = v => isFinite(v) ? `${v.toFixed(0)}` : '–';
       ctx.fillText(`act ${f2(G.A[i])} → ${f2(Ai)}   V½ ${vh(g.vA)}`, cx + 4, cy + 99);
       if (G.H) ctx.fillText(`avail ${f2(G.H[i])} → ${f2(Hi)}   V½ ${vh(g.vH)}`, cx + 4, cy + 113);
+      // time constants on a log axis: how long each gate takes to follow, at every voltage
+      const gc = GC.ch[g.c], tA = gc.tA, tH = gc.tH;
+      if (tA || tH) {
+        const qy = cy + 146, qh = 40; let lo = Infinity, hi = -Infinity;
+        for (const a of [tA, tH]) if (a) for (const x of a) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+        lo = Math.log10(lo) - .15; hi = Math.log10(hi) + .15; if (hi - lo < .6) { const m = (hi + lo) / 2; lo = m - .3; hi = m + .3; }
+        const T = x => qy + qh * (1 - (Math.log10(x) - lo) / (hi - lo));
+        ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, qy + .5, pw, qh);
+        ctx.fillStyle = col; ctx.font = `700 10px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('time constant τ (ms, log scale)', cx + 4, qy - 2);
+        ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        const fT = x => x >= 100 ? x.toFixed(0) : x >= 1 ? x.toFixed(0) : x.toPrecision(1);
+        const e0 = Math.ceil(lo + .15), e1 = Math.floor(hi - .15), es = Math.max(1, Math.ceil((e1 - e0 + 1) / 3));
+        for (let e = e0; e <= e1; e += es) { const y = Math.round(T(10 ** e)) + .5;
+          ctx.strokeStyle = css('grid-minor'); ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px + pw, y); ctx.stroke(); ctx.fillText(fT(10 ** e), px - 4, y); }
+        ctx.beginPath(); ctx.rect(px, qy, pw, qh); ctx.save(); ctx.clip();
+        for (const [arr, dash, lw] of [[tA, [], 2], [tH, [5, 3], 1.5]]) { if (!arr) continue;
+          ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+          for (let k = 0; k < arr.length; k++) { const x = X(GC.V[k]), y = T(arr[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+        ctx.setLineDash([]); ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(xv, qy); ctx.lineTo(xv, qy + qh); ctx.stroke();
+        const tnow = [];
+        for (const [arr, sq] of [[tH, true], [tA, false]]) { if (!arr) continue; const t = at(arr, V), y = T(t); tnow.push([t, sq]);
+          ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.fillStyle = col; ctx.beginPath(); if (sq) ctx.rect(xv - 3, y - 3, 6, 6); else ctx.arc(xv, y, 3.5, 0, 7); ctx.fill(); }
+        ctx.restore();
+        const ft = t => t >= 100 ? t.toFixed(0) : t >= 10 ? t.toFixed(1) : t.toFixed(2);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = `10.5px ${css('f-mono')}`; ctx.fillStyle = css('ink');
+        ctx.fillText(`τ act ${tA ? ft(at(tA, V)) : '–'} ms` + (tH ? `   inact ${ft(at(tH, V))} ms` : ''), cx + 4, qy + qh + 4);
+      }
     });
   }
 

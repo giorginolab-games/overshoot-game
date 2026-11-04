@@ -10,11 +10,11 @@ The version lives in `package.json` (single source of truth) and is shown in the
 - Levels that already have stars stay unlocked when new levels are inserted before them.
 - Lens: scrub time in both directions (time slider, drag on any plot, step and reverse-play buttons, keyboard: arrows, `,` `.`, Space, Home/End).
 - Lens: time-synced events, with a caption, a clickable event list and ticks on V(t). Channel state changes (opens, closes, inactivates, reopens), voltage and concentration landmarks, and level-defining moments (cardiac phases 0–4, M-current adaptation, T-channel recovery and rebound burst, undershoot). The channel named by the current event is outlined on the membrane.
-- Lens: "Gates and thresholds" panel. Per voltage-gated channel, steady-state activation (solid) and availability (dashed) against V, half-way voltages, the present V, and each gate's actual value versus where it is heading, so the nonlinear (m³, n⁴) and delayed (τ) response is visible; threshold lines on V(t) turn solid when V crosses them. Models now record gate traces (`R.G`) and steady-state curves (`R.GC`).
+- Lens: "Gates and thresholds" panel. Per voltage-gated channel, steady-state activation (solid) and availability (dashed) against V, half-way voltages, the present V, and each gate's actual value versus where it is heading, so the nonlinear (m³, n⁴) and delayed (τ) response is visible; threshold lines on V(t) turn solid when V crosses them. Each plot also has a log-scale τ(V) curve for the activation and inactivation gates, with the present values. Models now record gate traces (`R.G`) and steady-state curves (`R.GC`).
 - Lens: when paused, ions keep flowing at the instantaneous rate (frozen time, live flux).
 
 ### Changed
-- Steady-state gate values of the ten Tusscher model moved into `tnnpInf` (same equations, shared with the lens curves).
+- Steady-state gate values of the ten Tusscher model moved into `tnnpInf` (same equations, shared with the lens curves); the τ expressions are in `tnnpTau`, checked against the integrator by a test.
 - Cardiac lens runs sample every 0.1 ms (was 1 ms) so the upstroke events resolve.
 
 ### Fixed
