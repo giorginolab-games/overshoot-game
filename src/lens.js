@@ -549,6 +549,11 @@ const LENS_UI = (() => {
   }
   function init() {
     $('lensClose').onclick = closeLens;
+    $('lensInfo').onclick = () => {
+      const b = $('lensInfo'), on = b.getAttribute('aria-expanded') !== 'true';
+      b.setAttribute('aria-expanded', on);
+      document.querySelectorAll('.info-note').forEach(n => { n.hidden = !on; });
+    };
     $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
     document.addEventListener('keydown', e => {
       if (!open) return;

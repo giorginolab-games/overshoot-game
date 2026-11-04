@@ -50,6 +50,9 @@ button { font: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* header */
+.top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
+.credit { font-size: 11px; color: var(--muted); text-decoration: none; }
+.credit:hover { color: var(--accent); text-decoration: underline; }
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand h1 { font-size: clamp(28px, 4.2vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1; display: flex; align-items: center; gap: 10px; }
 .brand h1 svg { width: 1.6em; height: .9em; flex: none; }
@@ -214,6 +217,7 @@ canvas { display: block; width: 100%; }
 .lens-scale { font: 12.5px var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 .lens-scale b { font-weight: 600; color: var(--accent); }
 .lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.lens .note[hidden] { display: none; }
 .lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
 @media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } .busy { animation: none; } }
 </style>
@@ -224,7 +228,10 @@ canvas { display: block; width: 100%; }
       <h1><svg viewBox="0 0 64 36" aria-hidden="true"><path d="M2 28 H16 L20 4 L24 30 L30 22 Q44 22 48 28 H62" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Overshoot</h1>
       <p>Each level shows a target recording. Tune the density of each ion channel until your cell produces the same action potential.</p>
     </div>
+    <div class="top-right">
+    <a class="credit" href="https://www.giorginolab.it" target="_blank" rel="noopener">Toni Giorgino · www.giorginolab.it · CNR-IBF</a>
     <div class="tally" aria-live="polite"><span class="st">★</span><b id="tally">0</b><span id="tallyOf">/ 21 stars</span></div>
+    </div>
   </header>
 
   <nav class="levels" id="levels" aria-label="Levels"></nav>
@@ -283,7 +290,10 @@ canvas { display: block; width: 100%; }
     <div class="lens-head">
       <div><div class="eyebrow">Under the lens · your cell, slow motion</div><h2 id="lensTitle">Membrane</h2>
         <p>Ion flow at its true rate, slowed down. Each dot stands for a fixed number of ions, so the dots that cross add up to the real number of ions moved (|I| ÷ ze). The pore opens with the channel's open probability (Po).</p></div>
-      <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
+      <div style="display:flex;gap:8px;flex:none">
+        <button class="xbtn" id="lensInfo" type="button" aria-label="Explain the plots" aria-expanded="false" title="Explain the plots" style="font:italic 700 17px Georgia,serif">i</button>
+        <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
+      </div>
     </div>
     <div class="lens-ctrl">
       <div class="tbtns" role="group" aria-label="Playback">
@@ -304,14 +314,14 @@ canvas { display: block; width: 100%; }
     <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
     <canvas id="lk" role="img" aria-label="Gate curves aligned under each channel, with membrane potential on a shared vertical axis"></canvas>
     <canvas id="lb" role="img" aria-label="Buckets showing the concentration of each ion species inside the cell, with a magnified gauge of the change"></canvas>
-    <p class="note" id="lkNote">Under each voltage-gated channel: its steady-state activation curve (solid), with the fraction of channels open running from <b>closed</b> on the left to <b>open</b> on the right and membrane potential on the shared vertical axis. The dashed curve is inactivation, from inactivated (left) to available (right). The red line is the membrane potential; it crosses each curve at that channel's own point, and the dashed horizontal line marks its activation threshold (the shaded zone above it is where the channel opens). Ring: where the gate is heading; marker: where it is. Buckets below show the concentration of each ion inside the cell, under the channels that carry it: the dashed line is the starting level, and one action potential moves so few ions that the thin tube beside each bucket magnifies the change (tube ×N).</p>
+    <p class="note info-note" id="lkNote" hidden>Under each voltage-gated channel: its steady-state activation curve (solid), with the fraction of channels open running from <b>closed</b> on the left to <b>open</b> on the right and membrane potential on the shared vertical axis. The dashed curve is inactivation, from inactivated (left) to available (right). The red line is the membrane potential; it crosses each curve at that channel's own point, and the dashed horizontal line marks its activation threshold (the shaded zone above it is where the channel opens). Ring: where the gate is heading; marker: where it is. Buckets below show the concentration of each ion inside the cell, under the channels that carry it: the dashed line is the starting level, and one action potential moves so few ions that the thin tube beside each bucket magnifies the change (tube ×N).</p>
     <div class="lens-legend">
       <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
     </div>
     <h3 id="lgHead">Gates and thresholds</h3>
-    <p class="note" id="lgNote">Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far. Below each plot, the time constant τ (log scale) shows how slowly the gates follow at every voltage: a gap closes fast where τ is small and slowly where it is large.</p>
+    <p class="note info-note" id="lgNote" hidden>Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far. Below each plot, the time constant τ (log scale) shows how slowly the gates follow at every voltage: a gap closes fast where τ is small and slowly where it is large.</p>
     <canvas id="lg" role="img" aria-label="Gate steady-state curves versus membrane potential, with the present state of each gate"></canvas>
     <div class="lens-scale" id="lensScale"></div>
     <canvas id="lv" aria-label="Membrane potential with playhead and event ticks. Drag to scrub."></canvas>
@@ -1650,6 +1660,11 @@ const LENS_UI = (() => {
   }
   function init() {
     $('lensClose').onclick = closeLens;
+    $('lensInfo').onclick = () => {
+      const b = $('lensInfo'), on = b.getAttribute('aria-expanded') !== 'true';
+      b.setAttribute('aria-expanded', on);
+      document.querySelectorAll('.info-note').forEach(n => { n.hidden = !on; });
+    };
     $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
     document.addEventListener('keydown', e => {
       if (!open) return;
