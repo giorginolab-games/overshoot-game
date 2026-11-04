@@ -42,7 +42,7 @@ src/shell.html markup + CSS tokens; /*MODELS*/ /*CORE*/ /*LENS*/ /*APP*/ placeho
 
 **Data flow.** Moving a slider changes `p[k]`. On the next animation frame, `simulate(L, p)` runs: synchronously for single cells, or in a Web Worker for levels with `async: 'tnnpWall'`. The worker is built from `MODELS_FACTORY.toString()`, so it needs no separate file. Only one run is in flight at a time; a slider change during a run marks the state dirty, and the latest parameters run next. The run returns `R`. `evaluate(L, R, T)` compares it with the target trace `T`, which is computed once per level from `L.target`. The UI then redraws, stars are awarded, and progress is saved to localStorage.
 
-**Adding a level.** Add `src/levels/NN-id.json` (including its `lens` block), list it in `src/levels/index.json`, and name its `sim`/`feats` in `src/core.js`. `"@card"` pulls tools/currents/tol from `shared.json`. It needs:
+**Adding a level.** Add `src/levels/NN-id.json` (including its `lens` block), list it in `src/levels/index.json`, and name its `sim`/`feats` in `src/core.js`. Tools may list `"genes"` (human symbols) to get UniProt/Ensembl links. `"@card"` pulls tools/currents/tol from `shared.json`. It needs:
 - `tools`, with `k`, `min`, `max`, `unit`, `col`, and `lin` for linear sliders;
 - `target` and `start` parameter sets;
 - `sim`, `feats` and `tol`;

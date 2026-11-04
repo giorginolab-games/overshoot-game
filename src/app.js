@@ -54,6 +54,8 @@
     return out;
   }
 
+  // gene symbols -> UniProt (reviewed human entry) and Ensembl (gene search) links
+  const geneHtml = t => (t.genes || []).reduce((h, g) => h.replace(g, `<a href="https://www.uniprot.org/uniprotkb?query=gene_exact:${g}+AND+organism_id:9606+AND+reviewed:true" target="_blank" rel="noopener" title="${g} on UniProt">${g}</a> <a class="ens" href="https://www.ensembl.org/Multi/Search/Results?q=${g};species=Homo_sapiens;site=ensembl" target="_blank" rel="noopener" title="${g} on Ensembl">Ensembl</a>`), t.gene);
   // ---- level strip ----
   function renderLevels() {
     const el = $('levels'); el.innerHTML = '';
@@ -98,7 +100,7 @@
       row.style.setProperty('--tc', `var(--${t.col})`);
       const id = `sl-${L.id}-${t.k}`;
       row.innerHTML = `<span class="sw" style="background:var(--${t.col})"></span>
-        <label for="${id}"><div class="nm">${t.name}</div><div class="gn">${t.gene}</div></label>
+        <label for="${id}"><div class="nm">${t.name}</div><div class="gn">${geneHtml(t)}</div></label>
         <div class="val" id="v-${t.k}"></div>
         <input type="range" id="${id}" min="0" max="${N}" step="1" value="${toPos(t, p[t.k])}">`;
       box.appendChild(row);

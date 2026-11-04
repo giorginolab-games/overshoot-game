@@ -14,7 +14,8 @@
     {
       "k": "gNa",
       "name": "Voltage-gated Na⁺",
-      "gene": "Nav1.1 / Nav1.6",
+      "gene": "Nav1.1 / Nav1.6 · SCN1A / SCN8A",
+      "genes": ["SCN1A", "SCN8A"],
       "cur": "INa",
       "unit": "mS/cm²",
       "min": 5,
@@ -35,6 +36,7 @@
       "k": "gT",
       "name": "T-type Ca²⁺",
       "gene": "Cav3.1 · CACNA1G",
+      "genes": ["CACNA1G"],
       "cur": "IT",
       "unit": "mS/cm²",
       "min": 0.02,
