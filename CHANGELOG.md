@@ -6,6 +6,12 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-11-04
+### Added
+- Author credit (Toni Giorgino, www.giorginolab.it, CNR-IBF) at the top right of the page.
+### Changed
+- Lens: the two long plot explanations are hidden behind an "i" button in the lens header.
+
 ## [0.7.4] - 2026-11-04
 ### Changed
 - Thalamic level: labelled as a ferret model (after Destexhe et al. 1996); its channel links remain the reviewed human UniProt entries and are marked as human references, since UniProt has no reviewed ferret entries.
