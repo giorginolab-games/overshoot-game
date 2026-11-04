@@ -6,6 +6,10 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-04
+### Added
+- Squid levels: the Nav and sqKv1A channel names link to their UniProt entries (Q05973, Q25376), as the human gene symbols already do.
+
 ## [0.7.0] - 2026-11-04
 ### Added
 - Lens: ion buckets. One bucket per species inside the cell (Na⁺, K⁺, Ca²⁺, and the SR store in the myocyte), filled to the present concentration, with a zoom tube that magnifies the change around the starting value. Defined per level in the lens JSON (`buckets`).
