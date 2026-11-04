@@ -1,0 +1,68 @@
+{
+  "id": "potassium",
+  "name": "Electrolyte emergency",
+  "who": "Human · epicardium · 1 Hz",
+  "ref": "ten Tusscher et al. 2004",
+  "brief": "Same healthy channels, different blood. The tools are now the extracellular ion concentrations. A dialysis patient missed two sessions. Match their myocyte's action potential.",
+  "protocol": "1 ms stimulus at 1 Hz, steady state (2nd beat shown)",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnp",
+  "feats": "card",
+  "tools": [
+    {
+      "k": "Ko",
+      "name": "Extracellular K⁺",
+      "gene": "serum [K⁺]",
+      "cur": "IK1",
+      "unit": "mM",
+      "min": 2,
+      "max": 12,
+      "lin": true,
+      "col": "c-k1"
+    },
+    {
+      "k": "Nao",
+      "name": "Extracellular Na⁺",
+      "gene": "serum [Na⁺]",
+      "cur": "INa",
+      "unit": "mM",
+      "min": 110,
+      "max": 165,
+      "lin": true,
+      "col": "c-na"
+    },
+    {
+      "k": "Cao",
+      "name": "Extracellular Ca²⁺",
+      "gene": "serum [Ca²⁺] (ionised)",
+      "cur": "ICaL",
+      "unit": "mM",
+      "min": 0.6,
+      "max": 4,
+      "lin": true,
+      "col": "c-ca"
+    }
+  ],
+  "currents": "@card",
+  "target": {
+    "Ko": 8,
+    "Nao": 140,
+    "Cao": 2
+  },
+  "start": {
+    "Ko": 4,
+    "Nao": 132,
+    "Cao": 2.8
+  },
+  "tol": "@card",
+  "view": {
+    "x": [0, 600],
+    "y": [-100, 60],
+    "xt": 100,
+    "yt": 20
+  },
+  "hint0": "Look at the resting potential first. Which ion's Nernst potential sets it? The kidneys excrete that ion.",
+  "debrief": "Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells."
+}

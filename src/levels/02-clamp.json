@@ -1,0 +1,76 @@
+{
+  "id": "clamp",
+  "name": "Voltage clamp",
+  "who": "Loligo · 6.3 °C · voltage clamp",
+  "ref": "Hodgkin & Huxley 1952",
+  "brief": "Before they could build their model, Hodgkin and Huxley had to see the currents. A voltage clamp holds the membrane at a chosen potential and measures the current needed to keep it there. The target shows twelve voltage steps, recorded after part of the sodium in the sea water was replaced by choline. Match the currents and work out how much sodium was left.",
+  "protocol": "Hold −65 mV; 8 ms steps to −55 … +55 mV in 10 mV increments; currents in mA/cm², inward negative",
+  "units": {
+    "cur": "µA/cm²"
+  },
+  "sim": "hhClamp",
+  "feats": "clamp",
+  "panel": "clamp",
+  "tools": [
+    {
+      "k": "gNa",
+      "name": "Voltage-gated Na⁺",
+      "gene": "squid Nav",
+      "cur": "INa",
+      "unit": "mS/cm²",
+      "min": 10,
+      "max": 400,
+      "col": "c-na"
+    },
+    {
+      "k": "gK",
+      "name": "Delayed-rectifier K⁺",
+      "gene": "squid Kv1 (sqKv1A)",
+      "cur": "IK",
+      "unit": "mS/cm²",
+      "min": 3,
+      "max": 150,
+      "col": "c-k1"
+    },
+    {
+      "k": "Nao",
+      "name": "External Na⁺",
+      "gene": "sea water [Na⁺] (rest: choline)",
+      "cur": "INa",
+      "unit": "mM",
+      "min": 20,
+      "max": 460,
+      "lin": true,
+      "col": "ion-na"
+    }
+  ],
+  "currents": ["INa", "IK", "IL"],
+  "target": {
+    "gNa": 120,
+    "gK": 36,
+    "gL": 0.3,
+    "Nao": 132
+  },
+  "start": {
+    "gNa": 60,
+    "gK": 50,
+    "gL": 0.3,
+    "Nao": 440
+  },
+  "tol": {
+    "peakIn": 0.08,
+    "erev": 3,
+    "late55": 0.35,
+    "lateM15": 0.12,
+    "shapeI": 0.12
+  },
+  "view": {
+    "x": [0, 9],
+    "y": [-1.6, 4.8],
+    "xt": 1,
+    "yt": 1,
+    "yUnit": "mA/cm²"
+  },
+  "hint0": "The early inward current is carried by Na⁺. It reverses where the voltage cancels the Na⁺ gradient, which channel density cannot change. The late outward current is K⁺ and does not depend on sodium at all.",
+  "debrief": "In 1952 Hodgkin and Huxley separated the two currents by replacing external sodium with choline. The early current shrank and reversed at a less positive voltage, while the late current stayed the same, so the early current had to be Na⁺ and the late one K⁺. Here 30 % sodium (132 mM) moves E_Na from +50 to +21 mV (Nernst at 6.3 °C: 24.1 mV × ln 0.3 = −29 mV). The early current reverses a few mV below E_Na because some K⁺ and leak current already flow when the Na⁺ conductance peaks. Channel density scales the early current but cannot move its reversal, and that is how an experiment tells a change in channel number from a change in driving force. From separated currents like these, Hodgkin and Huxley fitted the m³h and n⁴ kinetics you used in level 1."
+}

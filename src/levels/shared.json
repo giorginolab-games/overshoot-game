@@ -1,0 +1,78 @@
+{
+  "card": {
+    "tools": [
+      {
+        "k": "GNa",
+        "name": "Fast Na⁺",
+        "gene": "Nav1.5 · SCN5A",
+        "cur": "INa",
+        "unit": "nS/pF",
+        "min": 2,
+        "max": 60,
+        "col": "c-na"
+      },
+      {
+        "k": "GCaL",
+        "name": "L-type Ca²⁺",
+        "gene": "Cav1.2 · CACNA1C",
+        "cur": "ICaL",
+        "unit": "×10⁻⁴ cm³/µF/s",
+        "scale": 10000,
+        "min": 0.00003,
+        "max": 0.0006,
+        "col": "c-ca"
+      },
+      {
+        "k": "Gto",
+        "name": "Transient outward K⁺",
+        "gene": "Kv4.3 · KCND3",
+        "cur": "Ito",
+        "unit": "nS/pF",
+        "min": 0.01,
+        "max": 1.2,
+        "col": "c-to"
+      },
+      {
+        "k": "GKr",
+        "name": "Rapid delayed rectifier",
+        "gene": "hERG · KCNH2",
+        "cur": "IKr",
+        "unit": "nS/pF",
+        "min": 0.005,
+        "max": 0.4,
+        "col": "c-kr"
+      },
+      {
+        "k": "GKs",
+        "name": "Slow delayed rectifier",
+        "gene": "KvLQT1 · KCNQ1",
+        "cur": "IKs",
+        "unit": "nS/pF",
+        "min": 0.01,
+        "max": 1,
+        "col": "c-ks"
+      },
+      {
+        "k": "GK1",
+        "name": "Inward rectifier K⁺",
+        "gene": "Kir2.1 · KCNJ2",
+        "cur": "IK1",
+        "unit": "nS/pF",
+        "min": 0.5,
+        "max": 20,
+        "col": "c-k1"
+      }
+    ],
+    "currents": ["INa", "ICaL", "Ito", "IKr", "IKs", "IK1", "INaCa", "INaK"],
+    "tol": {
+      "rest": 1.5,
+      "peak": 3,
+      "dvdt": 40,
+      "notch": 3,
+      "plateau": 3,
+      "apd50": 6,
+      "apd90": 6,
+      "shape": 3
+    }
+  }
+}

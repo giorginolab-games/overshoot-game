@@ -1,0 +1,84 @@
+{
+  "id": "pyramidal",
+  "name": "Cortical pyramidal cell",
+  "who": "Rat neocortex · regular spiking",
+  "ref": "Pospischil et al. 2008",
+  "brief": "Inject a 500 ms current step into a pyramidal neuron and it fires a train that slows down over time. That slowing (spike-frequency adaptation) comes from a slow K⁺ current.",
+  "protocol": "2.5 µA/cm² step, 100–600 ms",
+  "units": {
+    "cur": "µA/cm²"
+  },
+  "sim": "pyramidal",
+  "feats": "rs",
+  "tools": [
+    {
+      "k": "gNa",
+      "name": "Voltage-gated Na⁺",
+      "gene": "Nav1.2 / Nav1.6",
+      "cur": "INa",
+      "unit": "mS/cm²",
+      "min": 5,
+      "max": 200,
+      "col": "c-na"
+    },
+    {
+      "k": "gKd",
+      "name": "Delayed-rectifier K⁺",
+      "gene": "Kv2.1 · KCNB1",
+      "cur": "IKd",
+      "unit": "mS/cm²",
+      "min": 0.5,
+      "max": 40,
+      "col": "c-k1"
+    },
+    {
+      "k": "gM",
+      "name": "M-current (slow K⁺)",
+      "gene": "Kv7.2/7.3 · KCNQ2/3",
+      "cur": "IM",
+      "unit": "mS/cm²",
+      "min": 0.003,
+      "max": 0.6,
+      "col": "c-ks"
+    },
+    {
+      "k": "gL",
+      "name": "Leak",
+      "gene": "K2P and others",
+      "cur": "IL",
+      "unit": "mS/cm²",
+      "min": 0.01,
+      "max": 1,
+      "col": "c-lk"
+    }
+  ],
+  "currents": ["INa", "IKd", "IM", "IL"],
+  "target": {
+    "gNa": 50,
+    "gKd": 5,
+    "gM": 0.07,
+    "gL": 0.1
+  },
+  "start": {
+    "gNa": 50,
+    "gKd": 14,
+    "gM": 0.008,
+    "gL": 0.06
+  },
+  "tol": {
+    "rest": 1.5,
+    "count": 0.8,
+    "latency": 3,
+    "adapt": 0.35,
+    "peak": 3,
+    "trough": 2
+  },
+  "view": {
+    "x": [0, 800],
+    "y": [-90, 60],
+    "xt": 100,
+    "yt": 20
+  },
+  "hint0": "Spike count and adaptation are mostly about the slow K⁺ current. Leak sets rest and how long it takes to reach the first spike.",
+  "debrief": "Kv7 (KCNQ2/3) channels open slowly (time constant of hundreds of ms) at subthreshold voltages and do not inactivate. Each spike adds a little more open M-current, so the interspike intervals grow. Muscarinic agonists close these channels, which is where the name \"M\" comes from, and that turns adaptation off. KCNQ2 mutations cause neonatal epilepsy, and the anticonvulsant retigabine works by opening these channels."
+}

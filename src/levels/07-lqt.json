@@ -1,0 +1,28 @@
+{
+  "id": "lqt",
+  "name": "Mystery patient: long QT",
+  "who": "Human · epicardium · 1 Hz",
+  "ref": "Clinical case (model)",
+  "brief": "An infant has fainting spells, a very long QT interval, and webbed fingers and toes. Genetic testing found a single gain-of-function mutation in one ion channel. Find which one, and reproduce the patient's action potential.",
+  "protocol": "1 ms stimulus at 1 Hz, steady state (2nd beat shown)",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnp",
+  "feats": "card",
+  "tools": "@card",
+  "currents": "@card",
+  "target": {
+    "GCaL": 0.000315
+  },
+  "start": {},
+  "tol": "@card",
+  "view": {
+    "x": [0, 600],
+    "y": [-100, 60],
+    "xt": 100,
+    "yt": 20
+  },
+  "hint0": "Gain of function means more current, not less. Look at the plateau: it is higher as well as longer. Which inward current holds the plateau up?",
+  "debrief": "Timothy syndrome (LQT8), caused by the CACNA1C G406R mutation in Cav1.2. The real mutation mostly removes voltage-dependent inactivation, so L-type Ca²⁺ current keeps flowing through the plateau. Here it is approximated as 1.8× the ICaL conductance. Notice that cutting a K⁺ current (IKs, IKr) also lengthens the AP but cannot raise the plateau, so those fits score lower. Shape features beyond APD are what discriminate between mechanisms. The same channel is expressed in many tissues, which explains the syndactyly and the autism-spectrum features. By contrast, drug-induced long QT almost always comes from hERG (IKr) block. In this 2004 model hERG has a surprisingly small effect, because the model carries a large IKs reserve. Later models such as O'Hara–Rudy 2011 are much more hERG-sensitive, and that is one reason they are used in the FDA CiPA drug-safety initiative."
+}

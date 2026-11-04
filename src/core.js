@@ -109,183 +109,36 @@ const CORE = (() => {
   };
 
   // ---------- levels ----------
-  const CARD_TOOLS = [
-    { k: 'GNa', name: 'Fast Na⁺', gene: 'Nav1.5 · SCN5A', cur: 'INa', unit: 'nS/pF', min: 2, max: 60, col: 'c-na' },
-    { k: 'GCaL', name: 'L-type Ca²⁺', gene: 'Cav1.2 · CACNA1C', cur: 'ICaL', unit: '×10⁻⁴ cm³/µF/s', scale: 1e4, min: 0.3e-4, max: 6e-4, col: 'c-ca' },
-    { k: 'Gto', name: 'Transient outward K⁺', gene: 'Kv4.3 · KCND3', cur: 'Ito', unit: 'nS/pF', min: 0.01, max: 1.2, col: 'c-to' },
-    { k: 'GKr', name: 'Rapid delayed rectifier', gene: 'hERG · KCNH2', cur: 'IKr', unit: 'nS/pF', min: 0.005, max: 0.4, col: 'c-kr' },
-    { k: 'GKs', name: 'Slow delayed rectifier', gene: 'KvLQT1 · KCNQ1', cur: 'IKs', unit: 'nS/pF', min: 0.01, max: 1.0, col: 'c-ks' },
-    { k: 'GK1', name: 'Inward rectifier K⁺', gene: 'Kir2.1 · KCNJ2', cur: 'IK1', unit: 'nS/pF', min: 0.5, max: 20, col: 'c-k1' },
-  ];
-  const CARD_CURRENTS = ['INa', 'ICaL', 'Ito', 'IKr', 'IKs', 'IK1', 'INaCa', 'INaK'];
-  const CARD_FEATS = { rest: 1.5, peak: 3, dvdt: 40, notch: 3, plateau: 3, apd50: 6, apd90: 6, shape: 3 };
+  // Level definitions live in src/levels/*.json (order: index.json). build.js inlines them as LEVELS_DATA;
+  // under Node they are read from disk. JSON holds data only: a level names its simulator ("sim") and
+  // feature extractor ("feats") and those are looked up here. "@card" refers to shared.json.
   const cardSim = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: true, T: 600, out: 1 });
-
-  const LEVELS = [
-    {
-      id: 'squid', name: 'Squid giant axon', who: 'Loligo · 6.3 °C', ref: 'Hodgkin & Huxley 1952',
-      brief: 'The founding recording of membrane biophysics: one action potential in a squid giant axon after a 0.5 ms shock. Three conductances are all it takes.',
-      protocol: '0.5 ms pulse, 20 µA/cm², at t = 2 ms', units: { cur: 'µA/cm²' },
-      tools: [
-        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'squid Nav', cur: 'INa', unit: 'mS/cm²', min: 10, max: 400, col: 'c-na' },
-        { k: 'gK', name: 'Delayed-rectifier K⁺', gene: 'squid Kv1 (sqKv1A)', cur: 'IK', unit: 'mS/cm²', min: 3, max: 150, col: 'c-k1' },
-        { k: 'gL', name: 'Leak', gene: 'mostly Cl⁻ and K⁺', cur: 'IL', unit: 'mS/cm²', min: 0.03, max: 3, col: 'c-lk' },
-      ],
-      currents: ['INa', 'IK', 'IL'],
-      target: { gNa: 120, gK: 36, gL: 0.3 }, start: { gNa: 60, gK: 12, gL: 1.2 },
-      sim: p => M.hh(p), feats: hhFeatures, tol: { rest: 1, peak: 3, under: 2, width: 0.12, ttp: 0.2, shape: 3 },
-      view: { x: [0, 20], y: [-90, 60], xt: 2, yt: 20 },
-      hint0: 'Na⁺ channels make the upstroke; K⁺ channels end the spike and cause the undershoot. Leak sets how hard the cell is to excite.',
-      debrief: 'Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm².',
-    },
-    {
-      id: 'clamp', name: 'Voltage clamp', who: 'Loligo · 6.3 °C · voltage clamp', ref: 'Hodgkin & Huxley 1952',
-      brief: 'Before they could build their model, Hodgkin and Huxley had to see the currents. A voltage clamp holds the membrane at a chosen potential and measures the current needed to keep it there. The target shows twelve voltage steps, recorded after part of the sodium in the sea water was replaced by choline. Match the currents and work out how much sodium was left.',
-      protocol: 'Hold −65 mV; 8 ms steps to −55 … +55 mV in 10 mV increments; currents in mA/cm², inward negative', units: { cur: 'µA/cm²' },
-      tools: [
-        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'squid Nav', cur: 'INa', unit: 'mS/cm²', min: 10, max: 400, col: 'c-na' },
-        { k: 'gK', name: 'Delayed-rectifier K⁺', gene: 'squid Kv1 (sqKv1A)', cur: 'IK', unit: 'mS/cm²', min: 3, max: 150, col: 'c-k1' },
-        { k: 'Nao', name: 'External Na⁺', gene: 'sea water [Na⁺] (rest: choline)', cur: 'INa', unit: 'mM', min: 20, max: 460, lin: true, col: 'ion-na' },
-      ],
-      currents: ['INa', 'IK', 'IL'], panel: 'clamp',
-      target: { gNa: 120, gK: 36, gL: 0.3, Nao: 132 }, start: { gNa: 60, gK: 50, gL: 0.3, Nao: 440 },
-      sim: p => M.hhClamp(p), feats: clampFeatures, tol: { peakIn: 0.08, erev: 3, late55: 0.35, lateM15: 0.12, shapeI: 0.12 },
-      view: { x: [0, 9], y: [-1.6, 4.8], xt: 1, yt: 1, yUnit: 'mA/cm²' },
-      hint0: 'The early inward current is carried by Na⁺. It reverses where the voltage cancels the Na⁺ gradient, which channel density cannot change. The late outward current is K⁺ and does not depend on sodium at all.',
-      debrief: 'In 1952 Hodgkin and Huxley separated the two currents by replacing external sodium with choline. The early current shrank and reversed at a less positive voltage, while the late current stayed the same, so the early current had to be Na⁺ and the late one K⁺. Here 30 % sodium (132 mM) moves E_Na from +50 to +21 mV (Nernst at 6.3 °C: 24.1 mV × ln 0.3 = −29 mV). The early current reverses a few mV below E_Na because some K⁺ and leak current already flow when the Na⁺ conductance peaks. Channel density scales the early current but cannot move its reversal, and that is how an experiment tells a change in channel number from a change in driving force. From separated currents like these, Hodgkin and Huxley fitted the m³h and n⁴ kinetics you used in level 1.',
-    },
-    {
-      id: 'pyramidal', name: 'Cortical pyramidal cell', who: 'Rat neocortex · regular spiking', ref: 'Pospischil et al. 2008',
-      brief: 'Inject a 500 ms current step into a pyramidal neuron and it fires a train that slows down over time. That slowing (spike-frequency adaptation) comes from a slow K⁺ current.',
-      protocol: '2.5 µA/cm² step, 100–600 ms', units: { cur: 'µA/cm²' },
-      tools: [
-        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'Nav1.2 / Nav1.6', cur: 'INa', unit: 'mS/cm²', min: 5, max: 200, col: 'c-na' },
-        { k: 'gKd', name: 'Delayed-rectifier K⁺', gene: 'Kv2.1 · KCNB1', cur: 'IKd', unit: 'mS/cm²', min: 0.5, max: 40, col: 'c-k1' },
-        { k: 'gM', name: 'M-current (slow K⁺)', gene: 'Kv7.2/7.3 · KCNQ2/3', cur: 'IM', unit: 'mS/cm²', min: 0.003, max: 0.6, col: 'c-ks' },
-        { k: 'gL', name: 'Leak', gene: 'K2P and others', cur: 'IL', unit: 'mS/cm²', min: 0.01, max: 1, col: 'c-lk' },
-      ],
-      currents: ['INa', 'IKd', 'IM', 'IL'],
-      target: { gNa: 50, gKd: 5, gM: 0.07, gL: 0.1 }, start: { gNa: 50, gKd: 14, gM: 0.008, gL: 0.06 },
-      sim: p => M.cortical(p, { EL: -70, VT: -56.2, tauMax: 1000, T: 800, out: 0.2, currents: ['INa', 'IKd', 'IM', 'IL'], stim: t => (t >= 100 && t < 600) ? 2.5 : 0 }),
-      feats: rsFeatures, tol: { rest: 1.5, count: 0.8, latency: 3, adapt: 0.35, peak: 3, trough: 2 },
-      view: { x: [0, 800], y: [-90, 60], xt: 100, yt: 20 },
-      hint0: 'Spike count and adaptation are mostly about the slow K⁺ current. Leak sets rest and how long it takes to reach the first spike.',
-      debrief: 'Kv7 (KCNQ2/3) channels open slowly (time constant of hundreds of ms) at subthreshold voltages and do not inactivate. Each spike adds a little more open M-current, so the interspike intervals grow. Muscarinic agonists close these channels, which is where the name "M" comes from, and that turns adaptation off. KCNQ2 mutations cause neonatal epilepsy, and the anticonvulsant retigabine works by opening these channels.',
-    },
-    {
-      id: 'thalamus', name: 'Thalamic neuron', who: 'Thalamocortical / LTS cell', ref: 'Pospischil et al. 2008; Destexhe 1996',
-      brief: 'Hyperpolarise this neuron for 300 ms and let go. It answers with a rebound burst of spikes riding on a slow calcium spike. This is the mechanism behind sleep spindles and absence seizures.',
-      protocol: '−0.5 µA/cm² step, 100–400 ms, then release', units: { cur: 'µA/cm²' },
-      tools: [
-        { k: 'gNa', name: 'Voltage-gated Na⁺', gene: 'Nav1.1 / Nav1.6', cur: 'INa', unit: 'mS/cm²', min: 5, max: 200, col: 'c-na' },
-        { k: 'gKd', name: 'Delayed-rectifier K⁺', gene: 'Kv2 / Kv3', cur: 'IKd', unit: 'mS/cm²', min: 0.5, max: 40, col: 'c-k1' },
-        { k: 'gT', name: 'T-type Ca²⁺', gene: 'Cav3.1 · CACNA1G', cur: 'IT', unit: 'mS/cm²', min: 0.02, max: 5, col: 'c-ca' },
-        { k: 'gL', name: 'Leak', gene: 'K2P (TASK) and others', cur: 'IL', unit: 'mS/cm²', min: 0.005, max: 0.5, col: 'c-lk' },
-      ],
-      currents: ['INa', 'IKd', 'IT', 'IL'],
-      target: { gNa: 50, gKd: 4, gT: 1, gL: 0.04 }, start: { gNa: 50, gKd: 4, gT: 0.15, gL: 0.1 },
-      sim: p => M.cortical(p, { EL: -75, VT: -50, Vx: 2, T: 700, out: 0.2, currents: ['INa', 'IKd', 'IT', 'IL'], stim: t => (t >= 100 && t < 400) ? -0.5 : 0 }),
-      feats: ltsFeatures, tol: { rest: 1.5, hyp: 2, early: 0.5, count: 0.8, latency: 4, dur: 5 },
-      view: { x: [0, 700], y: [-100, 60], xt: 100, yt: 20 },
-      hint0: 'The burst needs T-type Ca²⁺ channels, which are inactivated at rest and only recover when the cell is hyperpolarised. Leak decides how far the step pushes the voltage down.',
-      debrief: 'Cav3.1 channels are inactivated at rest. A long hyperpolarisation removes the inactivation (the h-like gate u has τ of about 30–100 ms), so on release they open together and produce a low-threshold Ca²⁺ spike that triggers a burst of Na⁺ spikes. Leak conductance matters twice: it sets how far the step can hyperpolarise the cell, and it shunts the Ca²⁺ spike. Ethosuximide, a first-line drug for absence epilepsy, blocks T-type channels.',
-    },
-    {
-      id: 'epi', name: 'Ventricular myocyte', who: 'Human · epicardium · 1 Hz', ref: 'ten Tusscher, Noble, Noble & Panfilov 2004',
-      brief: 'A human ventricular action potential lasts about 300 ms, a hundred times longer than a nerve spike. It has a sharp upstroke, an epicardial notch, a long Ca²⁺-supported plateau and a K⁺-driven repolarisation. Six channel types shape it.',
-      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
-      tools: CARD_TOOLS, currents: CARD_CURRENTS,
-      target: {}, start: { GCaL: 0.9e-4, Gto: 0.05, GKr: 0.2, GK1: 2.0 },
-      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      hint0: 'Work phase by phase. Upstroke: Na⁺. Notch: Ito. Plateau height and length: Ca²⁺ against the two delayed rectifiers. Final repolarisation and rest: IK1.',
-      debrief: 'Each phase has an owner. Phase 0 is Nav1.5, phase 1 the Kv4.3 notch (large in epicardium, small in endocardium), phase 2 a balance between Cav1.2 and hERG/KCNQ1, phase 3 the delayed rectifiers handing over to Kir2.1, and phase 4 Kir2.1 clamping the cell near E_K. The Na⁺/Ca²⁺ exchanger and the Na⁺/K⁺ pump are shown in the current traces but are not adjustable here. They matter too: NCX carries inward current late in the plateau.',
-    },
-    {
-      id: 'mcell', name: 'Mid-myocardial M cell', who: 'Human · midwall · 1 Hz', ref: 'ten Tusscher et al. 2004; Antzelevitch',
-      brief: 'Cells from the middle of the ventricular wall have the longest action potentials in the heart. You start from the epicardial cell. Make it an M cell.',
-      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
-      tools: CARD_TOOLS, currents: CARD_CURRENTS,
-      target: { GKs: 0.062 }, start: {},
-      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      hint0: 'The upstroke and the notch already match. Only repolarisation is late. Which outward currents run during the plateau?',
-      debrief: 'In the original model the M cell differs from epicardium in one parameter: IKs is cut to a quarter (0.245 → 0.062 nS/pF). If you reached a good score another way, for example by lowering hERG or raising Cav1.2, you have found degeneracy: different channel mixes can produce nearly the same waveform (Marder & Goaillard 2006). This is why fitting a voltage trace alone cannot tell you a cell\'s channel densities, and why modellers add voltage-clamp, drug-block and pacing-rate protocols. The transmural APD gradient between epi, M and endo cells is what produces the upright T wave on the ECG.',
-    },
-    {
-      id: 'lqt', name: 'Mystery patient: long QT', who: 'Human · epicardium · 1 Hz', ref: 'Clinical case (model)',
-      brief: 'An infant has fainting spells, a very long QT interval, and webbed fingers and toes. Genetic testing found a single gain-of-function mutation in one ion channel. Find which one, and reproduce the patient\'s action potential.',
-      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
-      tools: CARD_TOOLS, currents: CARD_CURRENTS,
-      target: { GCaL: 3.15e-4 }, start: {},
-      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      hint0: 'Gain of function means more current, not less. Look at the plateau: it is higher as well as longer. Which inward current holds the plateau up?',
-      debrief: 'Timothy syndrome (LQT8), caused by the CACNA1C G406R mutation in Cav1.2. The real mutation mostly removes voltage-dependent inactivation, so L-type Ca²⁺ current keeps flowing through the plateau. Here it is approximated as 1.8× the ICaL conductance. Notice that cutting a K⁺ current (IKs, IKr) also lengthens the AP but cannot raise the plateau, so those fits score lower. Shape features beyond APD are what discriminate between mechanisms. The same channel is expressed in many tissues, which explains the syndactyly and the autism-spectrum features. By contrast, drug-induced long QT almost always comes from hERG (IKr) block. In this 2004 model hERG has a surprisingly small effect, because the model carries a large IKs reserve. Later models such as O\'Hara–Rudy 2011 are much more hERG-sensitive, and that is one reason they are used in the FDA CiPA drug-safety initiative.',
-    },
-    {
-      id: 'potassium', name: 'Electrolyte emergency', who: 'Human · epicardium · 1 Hz', ref: 'ten Tusscher et al. 2004',
-      brief: 'Same healthy channels, different blood. The tools are now the extracellular ion concentrations. A dialysis patient missed two sessions. Match their myocyte\'s action potential.',
-      protocol: '1 ms stimulus at 1 Hz, steady state (2nd beat shown)', units: { cur: 'pA/pF' },
-      tools: [
-        { k: 'Ko', name: 'Extracellular K⁺', gene: 'serum [K⁺]', cur: 'IK1', unit: 'mM', min: 2, max: 12, lin: true, col: 'c-k1' },
-        { k: 'Nao', name: 'Extracellular Na⁺', gene: 'serum [Na⁺]', cur: 'INa', unit: 'mM', min: 110, max: 165, lin: true, col: 'c-na' },
-        { k: 'Cao', name: 'Extracellular Ca²⁺', gene: 'serum [Ca²⁺] (ionised)', cur: 'ICaL', unit: 'mM', min: 0.6, max: 4, lin: true, col: 'c-ca' },
-      ],
-      currents: CARD_CURRENTS,
-      target: { Ko: 8, Nao: 140, Cao: 2 }, start: { Ko: 4, Nao: 132, Cao: 2.8 },
-      sim: cardSim, feats: cardFeatures, tol: CARD_FEATS,
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      hint0: 'Look at the resting potential first. Which ion\'s Nernst potential sets it? The kidneys excrete that ion.',
-      debrief: 'Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells.',
-    },
-    {
-      id: 'twave', name: 'The T wave', who: 'Human LV wall · 1.2 cm transmural strand · 1 Hz', ref: 'Gima & Rudy 2002; ten Tusscher et al. 2004/2006',
-      brief: 'The ECG is not the voltage of any one cell. It is the electric field of a whole wall of cells, activating and recovering at slightly different times. This is a 1.2 cm strip of left-ventricular wall, stimulated on the endocardial side and recorded by an electrode 2 cm beyond the epicardium. Right now every layer is the same, so the QRS is too narrow and the T wave points the wrong way. Give the wall its real layers.',
-      protocol: 'Endocardial stimulus at t = 0; single cells pre-paced at 1 Hz; pseudo-ECG scaled so the reference QRS = 1', units: { cur: 'pA/pF' },
-      tools: [
-        { k: 'D', name: 'Gap junctions', gene: 'Cx43 · GJA1 (coupling D)', cur: 'INa', unit: 'cm²/s', scale: 1000, min: 0.0002, max: 0.003, col: 'c-gj' },
-        { k: 'GKsEndo', name: 'Endocardium: slow K⁺', gene: 'KCNQ1 · inner 25 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-endo' },
-        { k: 'GKsM', name: 'Midwall: slow K⁺', gene: 'KCNQ1 · middle 35 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-mid' },
-        { k: 'GKsEpi', name: 'Epicardium: slow K⁺', gene: 'KCNQ1 · outer 40 %', cur: 'IKs', unit: 'nS/pF', min: 0.02, max: 1, col: 'l-epi' },
-        { k: 'GtoEpi', name: 'Epicardium: transient out', gene: 'Kv4.3 · KCND3', cur: 'Ito', unit: 'nS/pF', min: 0.01, max: 1.2, col: 'c-to' },
-        { k: 'GKr', name: 'Whole wall: hERG', gene: 'Kv11.1 · KCNH2', cur: 'IKr', unit: 'nS/pF', min: 0.01, max: 0.4, col: 'c-kr' },
-      ],
-      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWall', noise: 0.004,
-      target: { D: 0.0007, GKsEndo: 0.245, GKsM: 0.062, GKsEpi: 0.392, GtoEpi: 0.294, GKr: 0.096 },
-      start: { D: 0.0016, GKsEndo: 0.245, GKsM: 0.245, GKsEpi: 0.245, GtoEpi: 0.294, GKr: 0.096 },
-      sim: p => M.tnnpWall(p), feats: ecgFeatures,
-      tol: { qrsAmp: 0.06, qrsDur: 3, tAmp: 0.04, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.04 },
-      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
-      hint0: 'QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.',
-      debrief: 'The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart\'s geometry and on the torso, which needs whole-heart models.',
-    },
-    {
-      id: 'drug', name: 'The hERG paradox', who: 'Human LV wall · first-in-human trial · 1 Hz', ref: 'Redfern et al. 2003; CiPA (Colatsky et al. 2016)',
-      brief: 'At its clinical concentration, compound X blocks 60 % of hERG current. On that result alone it would be dropped, because hERG block is the classic cause of drug-induced long QT and torsade de pointes. Yet in the first-in-human trial the QT interval barely moved. The ECG below was recorded at peak plasma concentration. Find what else the compound blocks.',
-      protocol: 'hERG fixed at 40 % of control (from the patch-clamp screen); the other sliders set the current remaining through each channel', units: { cur: 'pA/pF' },
-      tools: [
-        { k: 'Kr', name: 'hERG (IKr)', gene: 'Kv11.1 · fixed by the hERG assay', cur: 'IKr', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-kr', locked: true },
-        { k: 'CaL', name: 'L-type Ca²⁺ (ICaL)', gene: 'Cav1.2 · CACNA1C', cur: 'ICaL', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ca' },
-        { k: 'Na', name: 'Fast Na⁺ (INa)', gene: 'Nav1.5 · SCN5A', cur: 'INa', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-na' },
-        { k: 'Ks', name: 'Slow delayed rectifier (IKs)', gene: 'KCNQ1 · all layers', cur: 'IKs', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-ks' },
-        { k: 'K1', name: 'Inward rectifier (IK1)', gene: 'Kir2.1 · KCNJ2', cur: 'IK1', unit: '% of control', scale: 100, min: 0.05, max: 1, lin: true, col: 'c-k1' },
-      ],
-      currents: CARD_CURRENTS, panel: 'wall', async: 'tnnpWallScaled', noise: 0.004,
-      target: { Kr: 0.4, CaL: 0.7, Na: 1, Ks: 1, K1: 1 }, start: { Kr: 0.4, CaL: 1, Na: 1, Ks: 1, K1: 1 },
-      sim: q => M.tnnpWallScaled(q), feats: ecgFeatures,
-      tol: { qrsAmp: 0.04, qrsDur: 3, tAmp: 0.03, tPeak: 8, qt: 8, tpte: 5, shapeE: 0.03 },
-      view: { x: [0, 560], y: [-0.4, 1.2], xt: 100, yt: 0.2, yUnit: 'norm.' },
-      hint0: 'Blocking hERG removes outward current during the plateau, so repolarisation comes late. To bring it back on time without restoring hERG, the drug must also remove some inward current from the plateau. Which inward current holds the plateau up?',
-      debrief: 'Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O\'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative.',
-    },
-  ];
-  for (const L of LEVELS) {
-    if (L.model === undefined && L.tools === CARD_TOOLS) {
-      L.target = Object.assign({}, TNNP_REF, L.target);
-      L.start = Object.assign({}, TNNP_REF, L.start);
+  const SIMS = {
+    hh: p => M.hh(p),
+    hhClamp: p => M.hhClamp(p),
+    pyramidal: p => M.cortical(p, { EL: -70, VT: -56.2, tauMax: 1000, T: 800, out: 0.2, currents: ['INa', 'IKd', 'IM', 'IL'], stim: t => (t >= 100 && t < 600) ? 2.5 : 0 }),
+    thalamus: p => M.cortical(p, { EL: -75, VT: -50, Vx: 2, T: 700, out: 0.2, currents: ['INa', 'IKd', 'IT', 'IL'], stim: t => (t >= 100 && t < 400) ? -0.5 : 0 }),
+    tnnp: cardSim,
+    tnnpWall: p => M.tnnpWall(p),
+    tnnpWallScaled: q => M.tnnpWallScaled(q),
+  };
+  const FEATS = { hh: hhFeatures, clamp: clampFeatures, rs: rsFeatures, lts: ltsFeatures, card: cardFeatures, ecg: ecgFeatures };
+  const DATA = (typeof LEVELS_DATA !== 'undefined') ? LEVELS_DATA : (() => {
+    const fs = require('fs'), path = require('path'), dir = path.join(__dirname, 'levels');
+    const rd = f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+    return { shared: rd('shared.json'), levels: rd('index.json').map(rd) };
+  })();
+  const LEVELS = DATA.levels.map(d => {
+    const L = Object.assign({}, d), card = DATA.shared.card;
+    for (const k of ['tools', 'currents', 'tol']) if (L[k] === '@card') L[k] = card[k];
+    if (d.tools === '@card') { // card levels override the reference TNNP parameters
+      L.target = Object.assign({}, TNNP_REF, d.target);
+      L.start = Object.assign({}, TNNP_REF, d.start);
     }
-  }
+    L.sim = SIMS[d.sim]; L.feats = FEATS[d.feats];
+    if (!L.sim || !L.feats) throw new Error(`level ${d.id}: unknown sim "${d.sim}" or feats "${d.feats}"`);
+    return L;
+  });
 
   // ---------- lens (slow-motion membrane view) ----------
   // Δc(t) in µM from cumulative charge: -∫ΣI dt · (S/V) / (zF); I in µA/cm², t in ms, S/V in cm⁻¹

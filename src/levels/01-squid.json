@@ -1,0 +1,72 @@
+{
+  "id": "squid",
+  "name": "Squid giant axon",
+  "who": "Loligo · 6.3 °C",
+  "ref": "Hodgkin & Huxley 1952",
+  "brief": "The founding recording of membrane biophysics: one action potential in a squid giant axon after a 0.5 ms shock. Three conductances are all it takes.",
+  "protocol": "0.5 ms pulse, 20 µA/cm², at t = 2 ms",
+  "units": {
+    "cur": "µA/cm²"
+  },
+  "sim": "hh",
+  "feats": "hh",
+  "tools": [
+    {
+      "k": "gNa",
+      "name": "Voltage-gated Na⁺",
+      "gene": "squid Nav",
+      "cur": "INa",
+      "unit": "mS/cm²",
+      "min": 10,
+      "max": 400,
+      "col": "c-na"
+    },
+    {
+      "k": "gK",
+      "name": "Delayed-rectifier K⁺",
+      "gene": "squid Kv1 (sqKv1A)",
+      "cur": "IK",
+      "unit": "mS/cm²",
+      "min": 3,
+      "max": 150,
+      "col": "c-k1"
+    },
+    {
+      "k": "gL",
+      "name": "Leak",
+      "gene": "mostly Cl⁻ and K⁺",
+      "cur": "IL",
+      "unit": "mS/cm²",
+      "min": 0.03,
+      "max": 3,
+      "col": "c-lk"
+    }
+  ],
+  "currents": ["INa", "IK", "IL"],
+  "target": {
+    "gNa": 120,
+    "gK": 36,
+    "gL": 0.3
+  },
+  "start": {
+    "gNa": 60,
+    "gK": 12,
+    "gL": 1.2
+  },
+  "tol": {
+    "rest": 1,
+    "peak": 3,
+    "under": 2,
+    "width": 0.12,
+    "ttp": 0.2,
+    "shape": 3
+  },
+  "view": {
+    "x": [0, 20],
+    "y": [-90, 60],
+    "xt": 2,
+    "yt": 20
+  },
+  "hint0": "Na⁺ channels make the upstroke; K⁺ channels end the spike and cause the undershoot. Leak sets how hard the cell is to excite.",
+  "debrief": "Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm²."
+}

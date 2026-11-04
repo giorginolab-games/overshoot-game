@@ -1,0 +1,31 @@
+{
+  "id": "epi",
+  "name": "Ventricular myocyte",
+  "who": "Human · epicardium · 1 Hz",
+  "ref": "ten Tusscher, Noble, Noble & Panfilov 2004",
+  "brief": "A human ventricular action potential lasts about 300 ms, a hundred times longer than a nerve spike. It has a sharp upstroke, an epicardial notch, a long Ca²⁺-supported plateau and a K⁺-driven repolarisation. Six channel types shape it.",
+  "protocol": "1 ms stimulus at 1 Hz, steady state (2nd beat shown)",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnp",
+  "feats": "card",
+  "tools": "@card",
+  "currents": "@card",
+  "target": {},
+  "start": {
+    "GCaL": 0.00009,
+    "Gto": 0.05,
+    "GKr": 0.2,
+    "GK1": 2
+  },
+  "tol": "@card",
+  "view": {
+    "x": [0, 600],
+    "y": [-100, 60],
+    "xt": 100,
+    "yt": 20
+  },
+  "hint0": "Work phase by phase. Upstroke: Na⁺. Notch: Ito. Plateau height and length: Ca²⁺ against the two delayed rectifiers. Final repolarisation and rest: IK1.",
+  "debrief": "Each phase has an owner. Phase 0 is Nav1.5, phase 1 the Kv4.3 notch (large in epicardium, small in endocardium), phase 2 a balance between Cav1.2 and hERG/KCNQ1, phase 3 the delayed rectifiers handing over to Kir2.1, and phase 4 Kir2.1 clamping the cell near E_K. The Na⁺/Ca²⁺ exchanger and the Na⁺/K⁺ pump are shown in the current traces but are not adjustable here. They matter too: NCX carries inward current late in the plateau."
+}

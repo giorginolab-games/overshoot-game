@@ -1,0 +1,114 @@
+{
+  "id": "twave",
+  "name": "The T wave",
+  "who": "Human LV wall · 1.2 cm transmural strand · 1 Hz",
+  "ref": "Gima & Rudy 2002; ten Tusscher et al. 2004/2006",
+  "brief": "The ECG is not the voltage of any one cell. It is the electric field of a whole wall of cells, activating and recovering at slightly different times. This is a 1.2 cm strip of left-ventricular wall, stimulated on the endocardial side and recorded by an electrode 2 cm beyond the epicardium. Right now every layer is the same, so the QRS is too narrow and the T wave points the wrong way. Give the wall its real layers.",
+  "protocol": "Endocardial stimulus at t = 0; single cells pre-paced at 1 Hz; pseudo-ECG scaled so the reference QRS = 1",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnpWall",
+  "feats": "ecg",
+  "panel": "wall",
+  "async": "tnnpWall",
+  "noise": 0.004,
+  "tools": [
+    {
+      "k": "D",
+      "name": "Gap junctions",
+      "gene": "Cx43 · GJA1 (coupling D)",
+      "cur": "INa",
+      "unit": "cm²/s",
+      "scale": 1000,
+      "min": 0.0002,
+      "max": 0.003,
+      "col": "c-gj"
+    },
+    {
+      "k": "GKsEndo",
+      "name": "Endocardium: slow K⁺",
+      "gene": "KCNQ1 · inner 25 %",
+      "cur": "IKs",
+      "unit": "nS/pF",
+      "min": 0.02,
+      "max": 1,
+      "col": "l-endo"
+    },
+    {
+      "k": "GKsM",
+      "name": "Midwall: slow K⁺",
+      "gene": "KCNQ1 · middle 35 %",
+      "cur": "IKs",
+      "unit": "nS/pF",
+      "min": 0.02,
+      "max": 1,
+      "col": "l-mid"
+    },
+    {
+      "k": "GKsEpi",
+      "name": "Epicardium: slow K⁺",
+      "gene": "KCNQ1 · outer 40 %",
+      "cur": "IKs",
+      "unit": "nS/pF",
+      "min": 0.02,
+      "max": 1,
+      "col": "l-epi"
+    },
+    {
+      "k": "GtoEpi",
+      "name": "Epicardium: transient out",
+      "gene": "Kv4.3 · KCND3",
+      "cur": "Ito",
+      "unit": "nS/pF",
+      "min": 0.01,
+      "max": 1.2,
+      "col": "c-to"
+    },
+    {
+      "k": "GKr",
+      "name": "Whole wall: hERG",
+      "gene": "Kv11.1 · KCNH2",
+      "cur": "IKr",
+      "unit": "nS/pF",
+      "min": 0.01,
+      "max": 0.4,
+      "col": "c-kr"
+    }
+  ],
+  "currents": "@card",
+  "target": {
+    "D": 0.0007,
+    "GKsEndo": 0.245,
+    "GKsM": 0.062,
+    "GKsEpi": 0.392,
+    "GtoEpi": 0.294,
+    "GKr": 0.096
+  },
+  "start": {
+    "D": 0.0016,
+    "GKsEndo": 0.245,
+    "GKsM": 0.245,
+    "GKsEpi": 0.245,
+    "GtoEpi": 0.294,
+    "GKr": 0.096
+  },
+  "tol": {
+    "qrsAmp": 0.06,
+    "qrsDur": 3,
+    "tAmp": 0.04,
+    "tPeak": 8,
+    "qt": 8,
+    "tpte": 5,
+    "shapeE": 0.04
+  },
+  "view": {
+    "x": [0, 560],
+    "y": [-0.4, 1.2],
+    "xt": 100,
+    "yt": 0.2,
+    "yUnit": "norm."
+  },
+  "hint0": "QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.",
+  "debrief": "The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart's geometry and on the torso, which needs whole-heart models."
+}

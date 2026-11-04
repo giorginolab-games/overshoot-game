@@ -1,0 +1,28 @@
+{
+  "id": "mcell",
+  "name": "Mid-myocardial M cell",
+  "who": "Human · midwall · 1 Hz",
+  "ref": "ten Tusscher et al. 2004; Antzelevitch",
+  "brief": "Cells from the middle of the ventricular wall have the longest action potentials in the heart. You start from the epicardial cell. Make it an M cell.",
+  "protocol": "1 ms stimulus at 1 Hz, steady state (2nd beat shown)",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnp",
+  "feats": "card",
+  "tools": "@card",
+  "currents": "@card",
+  "target": {
+    "GKs": 0.062
+  },
+  "start": {},
+  "tol": "@card",
+  "view": {
+    "x": [0, 600],
+    "y": [-100, 60],
+    "xt": 100,
+    "yt": 20
+  },
+  "hint0": "The upstroke and the notch already match. Only repolarisation is late. Which outward currents run during the plateau?",
+  "debrief": "In the original model the M cell differs from epicardium in one parameter: IKs is cut to a quarter (0.245 → 0.062 nS/pF). If you reached a good score another way, for example by lowering hERG or raising Cav1.2, you have found degeneracy: different channel mixes can produce nearly the same waveform (Marder & Goaillard 2006). This is why fitting a voltage trace alone cannot tell you a cell's channel densities, and why modellers add voltage-clamp, drug-block and pacing-rate protocols. The transmural APD gradient between epi, M and endo cells is what produces the upright T wave on the ECG."
+}

@@ -1,0 +1,112 @@
+{
+  "id": "drug",
+  "name": "The hERG paradox",
+  "who": "Human LV wall · first-in-human trial · 1 Hz",
+  "ref": "Redfern et al. 2003; CiPA (Colatsky et al. 2016)",
+  "brief": "At its clinical concentration, compound X blocks 60 % of hERG current. On that result alone it would be dropped, because hERG block is the classic cause of drug-induced long QT and torsade de pointes. Yet in the first-in-human trial the QT interval barely moved. The ECG below was recorded at peak plasma concentration. Find what else the compound blocks.",
+  "protocol": "hERG fixed at 40 % of control (from the patch-clamp screen); the other sliders set the current remaining through each channel",
+  "units": {
+    "cur": "pA/pF"
+  },
+  "sim": "tnnpWallScaled",
+  "feats": "ecg",
+  "panel": "wall",
+  "async": "tnnpWallScaled",
+  "noise": 0.004,
+  "tools": [
+    {
+      "k": "Kr",
+      "name": "hERG (IKr)",
+      "gene": "Kv11.1 · fixed by the hERG assay",
+      "cur": "IKr",
+      "unit": "% of control",
+      "scale": 100,
+      "min": 0.05,
+      "max": 1,
+      "lin": true,
+      "col": "c-kr",
+      "locked": true
+    },
+    {
+      "k": "CaL",
+      "name": "L-type Ca²⁺ (ICaL)",
+      "gene": "Cav1.2 · CACNA1C",
+      "cur": "ICaL",
+      "unit": "% of control",
+      "scale": 100,
+      "min": 0.05,
+      "max": 1,
+      "lin": true,
+      "col": "c-ca"
+    },
+    {
+      "k": "Na",
+      "name": "Fast Na⁺ (INa)",
+      "gene": "Nav1.5 · SCN5A",
+      "cur": "INa",
+      "unit": "% of control",
+      "scale": 100,
+      "min": 0.05,
+      "max": 1,
+      "lin": true,
+      "col": "c-na"
+    },
+    {
+      "k": "Ks",
+      "name": "Slow delayed rectifier (IKs)",
+      "gene": "KCNQ1 · all layers",
+      "cur": "IKs",
+      "unit": "% of control",
+      "scale": 100,
+      "min": 0.05,
+      "max": 1,
+      "lin": true,
+      "col": "c-ks"
+    },
+    {
+      "k": "K1",
+      "name": "Inward rectifier (IK1)",
+      "gene": "Kir2.1 · KCNJ2",
+      "cur": "IK1",
+      "unit": "% of control",
+      "scale": 100,
+      "min": 0.05,
+      "max": 1,
+      "lin": true,
+      "col": "c-k1"
+    }
+  ],
+  "currents": "@card",
+  "target": {
+    "Kr": 0.4,
+    "CaL": 0.7,
+    "Na": 1,
+    "Ks": 1,
+    "K1": 1
+  },
+  "start": {
+    "Kr": 0.4,
+    "CaL": 1,
+    "Na": 1,
+    "Ks": 1,
+    "K1": 1
+  },
+  "tol": {
+    "qrsAmp": 0.04,
+    "qrsDur": 3,
+    "tAmp": 0.03,
+    "tPeak": 8,
+    "qt": 8,
+    "tpte": 5,
+    "shapeE": 0.03
+  },
+  "view": {
+    "x": [0, 560],
+    "y": [-0.4, 1.2],
+    "xt": 100,
+    "yt": 0.2,
+    "yUnit": "norm."
+  },
+  "hint0": "Blocking hERG removes outward current during the plateau, so repolarisation comes late. To bring it back on time without restoring hERG, the drug must also remove some inward current from the plateau. Which inward current holds the plateau up?",
+  "debrief": "Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative."
+}
