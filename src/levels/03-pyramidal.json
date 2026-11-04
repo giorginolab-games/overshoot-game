@@ -80,5 +80,34 @@
     "yt": 20
   },
   "hint0": "Spike count and adaptation are mostly about the slow K⁺ current. Leak sets rest and how long it takes to reach the first spike.",
-  "debrief": "Kv7 (KCNQ2/3) channels open slowly (time constant of hundreds of ms) at subthreshold voltages and do not inactivate. Each spike adds a little more open M-current, so the interspike intervals grow. Muscarinic agonists close these channels, which is where the name \"M\" comes from, and that turns adaptation off. KCNQ2 mutations cause neonatal epilepsy, and the anticonvulsant retigabine works by opening these channels."
+  "debrief": "Kv7 (KCNQ2/3) channels open slowly (time constant of hundreds of ms) at subthreshold voltages and do not inactivate. Each spike adds a little more open M-current, so the interspike intervals grow. Muscarinic agonists close these channels, which is where the name \"M\" comes from, and that turns adaptation off. KCNQ2 mutations cause neonatal epilepsy, and the anticonvulsant retigabine works by opening these channels.",
+  "lens": {
+    "pA": 12.57,
+    "scope": "whole 20 µm soma (1,257 µm², 12.6 pF)",
+    "speeds": [1, 10, 40],
+    "ions": "@neuron",
+    "conc": [
+      {
+        "label": "Δ[Na⁺] inside",
+        "unit": "µM",
+        "kind": "dconc",
+        "names": ["INa"],
+        "SV": 3000,
+        "z": 1,
+        "d": 1,
+        "col": "ion-na"
+      },
+      {
+        "label": "Δ[K⁺] inside",
+        "unit": "µM",
+        "kind": "dconc",
+        "names": ["IKd", "IM"],
+        "SV": 3000,
+        "z": 1,
+        "d": 1,
+        "col": "ion-k"
+      }
+    ],
+    "note": "Estimated from the currents for a 20 µm spherical soma (surface-to-volume ratio 3000 cm⁻¹). Each spike adds a step of Na⁺ and removes a step of K⁺. In a thin dendrite or axon (much larger surface-to-volume ratio) the same train changes concentrations far more, which is why small neurites depend on the Na⁺/K⁺ pump."
+  }
 }

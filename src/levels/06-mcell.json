@@ -24,5 +24,6 @@
     "yt": 20
   },
   "hint0": "The upstroke and the notch already match. Only repolarisation is late. Which outward currents run during the plateau?",
-  "debrief": "In the original model the M cell differs from epicardium in one parameter: IKs is cut to a quarter (0.245 → 0.062 nS/pF). If you reached a good score another way, for example by lowering hERG or raising Cav1.2, you have found degeneracy: different channel mixes can produce nearly the same waveform (Marder & Goaillard 2006). This is why fitting a voltage trace alone cannot tell you a cell's channel densities, and why modellers add voltage-clamp, drug-block and pacing-rate protocols. The transmural APD gradient between epi, M and endo cells is what produces the upright T wave on the ECG."
+  "debrief": "In the original model the M cell differs from epicardium in one parameter: IKs is cut to a quarter (0.245 → 0.062 nS/pF). If you reached a good score another way, for example by lowering hERG or raising Cav1.2, you have found degeneracy: different channel mixes can produce nearly the same waveform (Marder & Goaillard 2006). This is why fitting a voltage trace alone cannot tell you a cell's channel densities, and why modellers add voltage-clamp, drug-block and pacing-rate protocols. The transmural APD gradient between epi, M and endo cells is what produces the upright T wave on the ECG.",
+  "lens": "@card"
 }

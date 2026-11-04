@@ -35,8 +35,8 @@ Scoring compares electrophysiological features (resting potential, overshoot, ma
 
 ```
 src/models.js   ionic models (HH 1952, Pospischil 2008, TNNP 2004), 1D cable + pseudo-ECG; Rush–Larsen + forward Euler
-src/core.js     feature extraction, scoring, lens metadata; loads the levels
-src/levels/     one JSON file per level (+ index.json for order, shared.json for the cardiac tool set)
+src/core.js     feature extraction, scoring; loads the levels
+src/levels/     one JSON file per level incl. lens (+ index.json for order, shared.json for shared cardiac tools/lens)
 src/lens.js     slow-motion membrane view
 src/app.js      game UI
 src/shell.html  markup and styles (placeholders are filled by build.js)

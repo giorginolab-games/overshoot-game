@@ -80,5 +80,34 @@
     "yt": 20
   },
   "hint0": "The burst needs T-type Ca²⁺ channels, which are inactivated at rest and only recover when the cell is hyperpolarised. Leak decides how far the step pushes the voltage down.",
-  "debrief": "Cav3.1 channels are inactivated at rest. A long hyperpolarisation removes the inactivation (the h-like gate u has τ of about 30–100 ms), so on release they open together and produce a low-threshold Ca²⁺ spike that triggers a burst of Na⁺ spikes. Leak conductance matters twice: it sets how far the step can hyperpolarise the cell, and it shunts the Ca²⁺ spike. Ethosuximide, a first-line drug for absence epilepsy, blocks T-type channels."
+  "debrief": "Cav3.1 channels are inactivated at rest. A long hyperpolarisation removes the inactivation (the h-like gate u has τ of about 30–100 ms), so on release they open together and produce a low-threshold Ca²⁺ spike that triggers a burst of Na⁺ spikes. Leak conductance matters twice: it sets how far the step can hyperpolarise the cell, and it shunts the Ca²⁺ spike. Ethosuximide, a first-line drug for absence epilepsy, blocks T-type channels.",
+  "lens": {
+    "pA": 12.57,
+    "scope": "whole 20 µm soma (1,257 µm², 12.6 pF)",
+    "speeds": [1, 10, 40],
+    "ions": "@neuron",
+    "conc": [
+      {
+        "label": "[Ca²⁺] under membrane",
+        "unit": "µM",
+        "kind": "caShell",
+        "depth": 1,
+        "tau": 5,
+        "cainf": 0.00024,
+        "d": 3,
+        "col": "ion-ca"
+      },
+      {
+        "label": "Δ[Na⁺] inside",
+        "unit": "µM",
+        "kind": "dconc",
+        "names": ["INa"],
+        "SV": 3000,
+        "z": 1,
+        "d": 1,
+        "col": "ion-na"
+      }
+    ],
+    "note": "Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma."
+  }
 }

@@ -32,7 +32,7 @@ src/models.js  MODELS_FACTORY() → { hh, cortical, tnnp, tnnpCable, tnnpWall }
                tnnpStep(cell, P, dt, Ist) is the single TNNP update shared by tnnp() and tnnpCable()
                tnnpWall(p) → { t, V=ecg, aps:[endo,mid,epi], map (depth×time V), act, rep, probe }   (p overrides WALL_REF)
                tnnpWallScaled(q): drug block, q = remaining fraction per current {Kr, CaL, Na, Ks, K1}
-src/core.js    CORE.LEVELS[] built from src/levels/*.json (tools, target/start, tol, view, texts) + SIMS/FEATS/LENS registries in code
+src/core.js    CORE.LEVELS[] built from src/levels/*.json (tools, target/start, tol, view, texts) + SIMS/FEATS/LENS_SIMS registries in code
                CORE.evaluate(level, R, T) → { score, rows[] };  CORE.starsFor(score)
 src/app.js     game UI: level strip, rack, scope + current strips (canvas), scorecard, features, notebook, assistant
 src/lens.js    LENS_UI.open(level, params): animated membrane, two-way time control, event caption/list, concentration strips
@@ -42,7 +42,7 @@ src/shell.html markup + CSS tokens; /*MODELS*/ /*CORE*/ /*LENS*/ /*APP*/ placeho
 
 **Data flow.** Moving a slider changes `p[k]`. On the next animation frame, `simulate(L, p)` runs: synchronously for single cells, or in a Web Worker for levels with `async: 'tnnpWall'`. The worker is built from `MODELS_FACTORY.toString()`, so it needs no separate file. Only one run is in flight at a time; a slider change during a run marks the state dirty, and the latest parameters run next. The run returns `R`. `evaluate(L, R, T)` compares it with the target trace `T`, which is computed once per level from `L.target`. The UI then redraws, stars are awarded, and progress is saved to localStorage.
 
-**Adding a level.** Add `src/levels/NN-id.json`, list it in `src/levels/index.json`, and add its `sim`/`feats` names (and a `LENS` entry) in `src/core.js`. `"@card"` pulls tools/currents/tol from `shared.json`. It needs:
+**Adding a level.** Add `src/levels/NN-id.json` (including its `lens` block), list it in `src/levels/index.json`, and name its `sim`/`feats` in `src/core.js`. `"@card"` pulls tools/currents/tol from `shared.json`. It needs:
 - `tools`, with `k`, `min`, `max`, `unit`, `col`, and `lin` for linear sliders;
 - `target` and `start` parameter sets;
 - `sim`, `feats` and `tol`;

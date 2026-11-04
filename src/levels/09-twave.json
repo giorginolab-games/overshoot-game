@@ -110,5 +110,16 @@
     "yUnit": "norm."
   },
   "hint0": "QRS width is set by how fast the wavefront crosses the wall. The T wave is upright when the layer activated last (the epicardium) finishes repolarising first, so the epicardium needs the shortest action potential. M cells, in the midwall, have the longest.",
-  "debrief": "The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart's geometry and on the torso, which needs whole-heart models."
+  "debrief": "The pseudo-ECG is φ ∝ ∫ (−∂V/∂x) · ∂(1/r)/∂x dx: only voltage <i>gradients</i> along the wall make a signal. During the QRS the gradient is the activation front, so its width is the transmural conduction time, set by gap-junction coupling (Cx43). During the T wave the gradient comes from cells repolarising at different times. In a uniform wall the cells that activate last also repolarise last, and the T wave is inverted, opposite to the QRS. Real hearts invert this order with a transmural gradient of K⁺ channels: dense IKs in the epicardium (0.392 nS/pF, the value used in ten Tusscher & Panfilov 2006) and sparse IKs in midwall M cells. The interval from T peak to T end reflects transmural dispersion of repolarisation, which is a clinical marker of arrhythmia risk. This 1D strand explains the T wave. The real QRS also depends on the 3D activation sequence laid down by the Purkinje network, on the heart's geometry and on the torso, which needs whole-heart models.",
+  "lens": {
+    "extends": "@card",
+    "sim": "waveFree",
+    "view": {
+      "x": [0, 600],
+      "y": [-100, 60],
+      "xt": 100,
+      "yt": 20
+    },
+    "note": "This is one epicardial cell with your wall's channel densities, uncoupled from its neighbours, so you can watch the K⁺ currents that end its action potential early. In the wall, coupling to the longer-lasting midwall cells pulls its repolarisation a little later. {@note}"
+  }
 }

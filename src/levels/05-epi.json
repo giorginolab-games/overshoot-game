@@ -27,5 +27,6 @@
     "yt": 20
   },
   "hint0": "Work phase by phase. Upstroke: Na⁺. Notch: Ito. Plateau height and length: Ca²⁺ against the two delayed rectifiers. Final repolarisation and rest: IK1.",
-  "debrief": "Each phase has an owner. Phase 0 is Nav1.5, phase 1 the Kv4.3 notch (large in epicardium, small in endocardium), phase 2 a balance between Cav1.2 and hERG/KCNQ1, phase 3 the delayed rectifiers handing over to Kir2.1, and phase 4 Kir2.1 clamping the cell near E_K. The Na⁺/Ca²⁺ exchanger and the Na⁺/K⁺ pump are shown in the current traces but are not adjustable here. They matter too: NCX carries inward current late in the plateau."
+  "debrief": "Each phase has an owner. Phase 0 is Nav1.5, phase 1 the Kv4.3 notch (large in epicardium, small in endocardium), phase 2 a balance between Cav1.2 and hERG/KCNQ1, phase 3 the delayed rectifiers handing over to Kir2.1, and phase 4 Kir2.1 clamping the cell near E_K. The Na⁺/Ca²⁺ exchanger and the Na⁺/K⁺ pump are shown in the current traces but are not adjustable here. They matter too: NCX carries inward current late in the plateau.",
+  "lens": "@card"
 }

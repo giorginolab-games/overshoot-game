@@ -108,5 +108,16 @@
     "yUnit": "norm."
   },
   "hint0": "Blocking hERG removes outward current during the plateau, so repolarisation comes late. To bring it back on time without restoring hERG, the drug must also remove some inward current from the plateau. Which inward current holds the plateau up?",
-  "debrief": "Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative."
+  "debrief": "Compound X behaves like verapamil, which blocks hERG and Cav1.2 at similar concentrations. Less inward Ca²⁺ current during the plateau balances the lost outward K⁺ current, so the action potential, and the QT interval, barely change. Verapamil is not associated with torsade de pointes. Ranolazine is another hERG blocker with low risk; it also blocks late Na⁺ current, which this model does not include. Cases like these are why a hERG assay alone gives false alarms. The FDA-backed CiPA initiative now combines patch-clamp data on several channels with a human ventricular model (O'Hara–Rudy) to predict risk. Note the T wave: it is still flatter and earlier than in a healthy wall, because the balance is not exact. That residual shape is how the trial ECG gives the second block away. In this 2004 model hERG effects are smaller than in later human models, so the sizes here are illustrative.",
+  "lens": {
+    "extends": "@card",
+    "sim": "drugFree",
+    "view": {
+      "x": [0, 600],
+      "y": [-100, 60],
+      "xt": 100,
+      "yt": 20
+    },
+    "note": "One epicardial cell with your drug's block applied, uncoupled from the wall. Compare the Cav1.2 and hERG currents during the plateau with the untreated cell. {@note}"
+  }
 }

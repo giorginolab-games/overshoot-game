@@ -64,5 +64,6 @@
     "yt": 20
   },
   "hint0": "Look at the resting potential first. Which ion's Nernst potential sets it? The kidneys excrete that ion.",
-  "debrief": "Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells."
+  "debrief": "Hyperkalaemia, [K⁺]o = 8 mM. Raising extracellular K⁺ shifts E_K positive (Nernst: 26.7 mV × ln(Ko/Ki)), so the resting potential depolarises by about 10 mV. That partially inactivates Nav1.5, so the upstroke is slower and the overshoot smaller, which widens the QRS. At the same time IK1 and IKr conductances increase with √Ko, so repolarisation is faster, which peaks the T wave. On the ECG: peaked T waves, then a wide QRS, then a sine-wave pattern and arrest. Intravenous calcium is given first because it stabilises the membrane, before insulin and glucose shift K⁺ back into cells.",
+  "lens": "@card"
 }

@@ -68,5 +68,37 @@
     "yt": 20
   },
   "hint0": "Na⁺ channels make the upstroke; K⁺ channels end the spike and cause the undershoot. Leak sets how hard the cell is to excite.",
-  "debrief": "Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm²."
+  "debrief": "Hodgkin and Huxley fitted these three conductances to voltage-clamp data and then predicted this waveform, including its shape, its conduction velocity and its refractory period. Na⁺ activation (m³) is fast and self-reinforcing; inactivation (h) and the slower K⁺ activation (n⁴) end the spike. The undershoot is the K⁺ conductance relaxing slowly back toward rest while V sits close to E_K = −77 mV. Single-channel conductance of squid Nav is about 15 pS, so 120 mS/cm² means roughly 80 open-able channels per µm².",
+  "lens": {
+    "pA": 1,
+    "scope": "100 µm² patch of axon (≈ 8,000 Na⁺ channels at 120 mS/cm²)",
+    "speeds": [0.15, 0.8, 3],
+    "ions": {
+      "out": "Na⁺ 440 · K⁺ 20 mM (sea water)",
+      "in": "Na⁺ 50 · K⁺ 400 mM (axoplasm)"
+    },
+    "conc": [
+      {
+        "label": "Δ[Na⁺] inside",
+        "unit": "µM",
+        "kind": "dconc",
+        "names": ["INa"],
+        "SV": 80,
+        "z": 1,
+        "d": 3,
+        "col": "ion-na"
+      },
+      {
+        "label": "Δ[K⁺] inside",
+        "unit": "µM",
+        "kind": "dconc",
+        "names": ["IK"],
+        "SV": 80,
+        "z": 1,
+        "d": 3,
+        "col": "ion-k"
+      }
+    ],
+    "note": "Estimated from the currents for a 500 µm squid axon (surface-to-volume ratio 80 cm⁻¹). One spike raises internal Na⁺ by well under a micromolar, against about 50 mM already there. That is why an axon with its pumps poisoned can still fire many thousands of spikes: an action potential needs only a tiny charge transfer, not a change in concentration."
+  }
 }

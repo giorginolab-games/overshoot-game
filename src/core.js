@@ -141,6 +141,7 @@ const CORE = (() => {
   });
 
   // ---------- lens (slow-motion membrane view) ----------
+  // Lens data is declarative JSON (level.lens, or "@card" / "extends": "@card" -> shared.json lens.card).
   // Δc(t) in µM from cumulative charge: -∫ΣI dt · (S/V) / (zF); I in µA/cm², t in ms, S/V in cm⁻¹
   function dconc(R, names, SV, z) {
     const n = R.t.length, dt = R.t[1] - R.t[0], out = new Float64Array(n); let q = 0;
@@ -154,57 +155,37 @@ const CORE = (() => {
     return out; // µM
   }
   const mul = (a, f, off = 0) => { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) o[i] = (a[i] - off) * f; return o; };
-  const NEURON_IONS = { out: 'Na⁺ 145 · K⁺ 4 · Ca²⁺ 2 mM', in: 'Na⁺ 12 · K⁺ 140 mM · Ca²⁺ 0.1 µM' };
-  const CARD_LENS = {
-    pA: 185, scope: 'whole cell (185 pF of membrane)',
-    speeds: [2, 15, 60], sim: p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
-    ions: (p, R, i) => ({ out: `Na⁺ ${(p.Nao ?? 140).toFixed(0)} · K⁺ ${(p.Ko ?? 5.4).toFixed(1)} · Ca²⁺ ${(p.Cao ?? 2).toFixed(1)} mM`,
-      in: `Na⁺ ${R.C.Nai[i].toFixed(3)} · K⁺ ${R.C.Ki[i].toFixed(2)} mM · Ca²⁺ ${(R.C.Cai[i] * 1000).toFixed(2)} µM` }),
-    conc: R => [
-      { label: '[Ca²⁺] cytosol', unit: 'µM', data: mul(R.C.Cai, 1000), d: 3, col: 'ion-ca' },
-      { label: '[Ca²⁺] SR store', unit: 'mM', data: R.C.Casr, d: 3, col: 'c-ca' },
-      { label: 'Δ[Na⁺] cytosol', unit: 'µM', data: mul(R.C.Nai, 1000, R.C.Nai[0]), d: 2, col: 'ion-na' },
-      { label: 'Δ[K⁺] cytosol', unit: 'µM', data: mul(R.C.Ki, 1000, R.C.Ki[0]), d: 2, col: 'ion-k' },
-    ],
-    note: 'Concentrations come straight from the model. The Ca²⁺ transient is released from the sarcoplasmic reticulum (SR) by the trigger Ca²⁺ entering through Cav1.2, and it is what makes the cell contract. One beat shifts cytosolic Na⁺ and K⁺ by only tens of µM out of about 11 and 138 mM. Watch Na⁺ jump at the upstroke, then fall as the Na⁺/K⁺ pump works through the beat. Over minutes of pacing the two balance.',
+  const tnnpFree = p => M.tnnp(Object.assign({}, TNNP_REF, p), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 });
+  const LENS_SIMS = {
+    cardFree: tnnpFree,
+    hhStep: p => M.hhStep(0, p, { pre: 1, T: 8, out: 0.025 }),
+    drugFree: q => tnnpFree({ GKr: TNNP_REF.GKr * q.Kr, GCaL: TNNP_REF.GCaL * q.CaL, GNa: TNNP_REF.GNa * q.Na, GKs: 0.392 * q.Ks, GK1: TNNP_REF.GK1 * q.K1 }),
+    waveFree: p => tnnpFree({ GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }),
   };
-  const LENS = {
-    squid: { pA: 1, scope: '100 µm² patch of axon (≈ 8,000 Na⁺ channels at 120 mS/cm²)', speeds: [0.15, 0.8, 3], sim: p => M.hh(p), ions: () => ({ out: 'Na⁺ 440 · K⁺ 20 mM (sea water)', in: 'Na⁺ 50 · K⁺ 400 mM (axoplasm)' }),
-      conc: R => [
-        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 80, 1), d: 3, col: 'ion-na' },
-        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IK'], 80, 1), d: 3, col: 'ion-k' }],
-      note: 'Estimated from the currents for a 500 µm squid axon (surface-to-volume ratio 80 cm⁻¹). One spike raises internal Na⁺ by well under a micromolar, against about 50 mM already there. That is why an axon with its pumps poisoned can still fire many thousands of spikes: an action potential needs only a tiny charge transfer, not a change in concentration.' },
-    clamp: { pA: 1, scope: '100 µm² patch of axon, clamped at 0 mV', speeds: [0.15, 0.8, 3],
-      sim: p => M.hhStep(0, p, { pre: 1, T: 8, out: 0.025 }), view: { x: [0, 9], y: [-100, 60], xt: 1, yt: 20 },
-      ions: p => ({ out: `Na⁺ ${(p.Nao ?? 440).toFixed(0)} mM (rest choline) · K⁺ 20 mM`, in: 'Na⁺ 50 · K⁺ 400 mM (axoplasm)' }),
-      conc: R => [
-        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 80, 1), d: 3, col: 'ion-na' },
-        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IK'], 80, 1), d: 3, col: 'ion-k' }],
-      note: 'One voltage step, from −65 to 0 mV, of a 500 µm axon (surface-to-volume ratio 80 cm⁻¹). The voltage does not move after the step, so every change in current here comes from the gates: Na⁺ channels open then inactivate, K⁺ channels open slowly and stay open. Compare the timing with the early and late currents in the main view.' },
-    pyramidal: { pA: 12.57, scope: 'whole 20 µm soma (1,257 µm², 12.6 pF)', speeds: [1, 10, 40], sim: null, ions: () => NEURON_IONS,
-      conc: R => [
-        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' },
-        { label: 'Δ[K⁺] inside', unit: 'µM', data: dconc(R, ['IKd', 'IM'], 3000, 1), d: 1, col: 'ion-k' }],
-      note: 'Estimated from the currents for a 20 µm spherical soma (surface-to-volume ratio 3000 cm⁻¹). Each spike adds a step of Na⁺ and removes a step of K⁺. In a thin dendrite or axon (much larger surface-to-volume ratio) the same train changes concentrations far more, which is why small neurites depend on the Na⁺/K⁺ pump.' },
-    thalamus: { pA: 12.57, scope: 'whole 20 µm soma (1,257 µm², 12.6 pF)', speeds: [1, 10, 40], sim: null, ions: () => NEURON_IONS,
-      conc: R => [
-        { label: '[Ca²⁺] under membrane', unit: 'µM', data: caShell(R, 1, 5, 2.4e-4), d: 3, col: 'ion-ca' },
-        { label: 'Δ[Na⁺] inside', unit: 'µM', data: dconc(R, ['INa'], 3000, 1), d: 1, col: 'ion-na' }],
-      note: 'Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma.' },
-    epi: CARD_LENS, mcell: CARD_LENS, lqt: CARD_LENS, potassium: CARD_LENS,
-    drug: Object.assign({}, CARD_LENS, {
-      sim: q => M.tnnp(Object.assign({}, TNNP_REF, { GKr: TNNP_REF.GKr * q.Kr, GCaL: TNNP_REF.GCaL * q.CaL, GNa: TNNP_REF.GNa * q.Na, GKs: 0.392 * q.Ks, GK1: TNNP_REF.GK1 * q.K1 }),
-        { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      note: 'One epicardial cell with your drug\'s block applied, uncoupled from the wall. Compare the Cav1.2 and hERG currents during the plateau with the untreated cell. ' + CARD_LENS.note,
-    }),
-    twave: Object.assign({}, CARD_LENS, {
-      sim: p => M.tnnp(Object.assign({}, TNNP_REF, { GKr: p.GKr, Gto: p.GtoEpi, GKs: p.GKsEpi }), { beats: 2, init: TNNP_SS, clampNaK: false, T: 600, out: 0.1 }),
-      view: { x: [0, 600], y: [-100, 60], xt: 100, yt: 20 },
-      note: 'This is one epicardial cell with your wall\'s channel densities, uncoupled from its neighbours, so you can watch the K⁺ currents that end its action potential early. In the wall, coupling to the longer-lasting midwall cells pulls its repolarisation a little later. ' + CARD_LENS.note,
-    }),
+  const CONC_KINDS = {
+    dconc: (s, R) => dconc(R, s.names, s.SV, s.z),
+    caShell: (s, R) => caShell(R, s.depth, s.tau, s.cainf),
+    series: (s, R) => mul(R.C[s.from], s.scale || 1, s.delta ? R.C[s.from][0] : 0),
   };
-  for (const L of LEVELS) { L.lens = LENS[L.id]; if (!L.lens.sim) L.lens = Object.assign({}, L.lens, { sim: L.sim }); }
+  // "{p.Nao:0=440}" -> parameter Nao to 0 decimals (default 440); "{C.Cai:2*1000}" -> model concentration trace at frame i
+  const fillIons = (tpl, p, R, i) => tpl.replace(/\{(p|C)\.(\w+)(?::(\d+))?(?:=([\d.]+))?(?:\*(\d+))?\}/g, (_, src, k, d, def, mulf) => {
+    const v = src === 'p' ? (p[k] ?? Number(def)) : R.C[k][i] * (mulf ? Number(mulf) : 1);
+    return v.toFixed(d ? Number(d) : 0);
+  });
+  function buildLens(L, shared) {
+    const base = shared.lens.card;
+    let d = L.lens;
+    if (d === '@card') d = { extends: '@card' };
+    if (d.extends === '@card') d = Object.assign({}, base, d);
+    const ions = d.ions === '@neuron' ? shared.neuronIons : d.ions;
+    const note = d.note.replace('{@note}', base.note);
+    return Object.assign({}, d, {
+      note, sim: d.sim ? LENS_SIMS[d.sim] : L.sim,
+      conc: R => d.conc.map(s => ({ label: s.label, unit: s.unit, data: CONC_KINDS[s.kind || 'dconc'](s, R), d: s.d, col: s.col })),
+      ions: (p, R, i) => ({ out: fillIons(ions.out, p, R, i), in: fillIons(ions.in, p, R, i) }),
+    });
+  }
+  for (const L of LEVELS) L.lens = buildLens(L, DATA.shared);
 
   // ---------- lens events: channel state changes and level-defining moments, in cell time ----------
   const CH_SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',

@@ -63,7 +63,16 @@
         "col": "c-k1"
       }
     ],
-    "currents": ["INa", "ICaL", "Ito", "IKr", "IKs", "IK1", "INaCa", "INaK"],
+    "currents": [
+      "INa",
+      "ICaL",
+      "Ito",
+      "IKr",
+      "IKs",
+      "IK1",
+      "INaCa",
+      "INaK"
+    ],
     "tol": {
       "rest": 1.5,
       "peak": 3,
@@ -73,6 +82,66 @@
       "apd50": 6,
       "apd90": 6,
       "shape": 3
+    }
+  },
+  "neuronIons": {
+    "out": "Na⁺ 145 · K⁺ 4 · Ca²⁺ 2 mM",
+    "in": "Na⁺ 12 · K⁺ 140 mM · Ca²⁺ 0.1 µM"
+  },
+  "lens": {
+    "card": {
+      "pA": 185,
+      "scope": "whole cell (185 pF of membrane)",
+      "speeds": [
+        2,
+        15,
+        60
+      ],
+      "sim": "cardFree",
+      "ions": {
+        "out": "Na⁺ {p.Nao:0=140} · K⁺ {p.Ko:1=5.4} · Ca²⁺ {p.Cao:1=2} mM",
+        "in": "Na⁺ {C.Nai:3} · K⁺ {C.Ki:2} mM · Ca²⁺ {C.Cai:2*1000} µM"
+      },
+      "conc": [
+        {
+          "label": "[Ca²⁺] cytosol",
+          "unit": "µM",
+          "kind": "series",
+          "from": "Cai",
+          "scale": 1000,
+          "d": 3,
+          "col": "ion-ca"
+        },
+        {
+          "label": "[Ca²⁺] SR store",
+          "unit": "mM",
+          "kind": "series",
+          "from": "Casr",
+          "d": 3,
+          "col": "c-ca"
+        },
+        {
+          "label": "Δ[Na⁺] cytosol",
+          "unit": "µM",
+          "kind": "series",
+          "from": "Nai",
+          "scale": 1000,
+          "delta": true,
+          "d": 2,
+          "col": "ion-na"
+        },
+        {
+          "label": "Δ[K⁺] cytosol",
+          "unit": "µM",
+          "kind": "series",
+          "from": "Ki",
+          "scale": 1000,
+          "delta": true,
+          "d": 2,
+          "col": "ion-k"
+        }
+      ],
+      "note": "Concentrations come straight from the model. The Ca²⁺ transient is released from the sarcoplasmic reticulum (SR) by the trigger Ca²⁺ entering through Cav1.2, and it is what makes the cell contract. One beat shifts cytosolic Na⁺ and K⁺ by only tens of µM out of about 11 and 138 mM. Watch Na⁺ jump at the upstroke, then fall as the Na⁺/K⁺ pump works through the beat. Over minutes of pacing the two balance."
     }
   }
 }
