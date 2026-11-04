@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path');
 const src = f => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8');
 const version = require('./package.json').version;
-let html = src('shell.html').replace('/*VERSION*/', version);
+let html = src('shell.html').replace(/\/\*VERSION\*\//g, version);
 const rd = f => JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'levels', f), 'utf8'));
 const levelsData = { shared: rd('shared.json'), levels: rd('index.json').map(rd) };
 for (const [k, f] of [['LEVELSDATA', null], ['MODELS', 'models.js'], ['CORE', 'core.js'], ['LENS', 'lens.js'], ['APP', 'app.js']]) {

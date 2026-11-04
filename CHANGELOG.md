@@ -6,6 +6,10 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-11-04
+### Added
+- Version number shown next to the author credit at the top of the page.
+
 ## [0.7.6] - 2026-11-04
 ### Changed
 - Lens: one "i" button per explanation (next to the legend for the gate-curve and bucket plots, and next to "Gates and thresholds"), replacing the single header button.

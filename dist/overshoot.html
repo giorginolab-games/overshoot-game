@@ -52,6 +52,7 @@ button { font: inherit; }
 /* header */
 .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
 .credit { font-size: 11px; color: var(--muted); text-decoration: none; }
+.top-right .credit { text-align: right; }
 .credit:hover { color: var(--accent); text-decoration: underline; }
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand h1 { font-size: clamp(28px, 4.2vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1; display: flex; align-items: center; gap: 10px; }
@@ -231,7 +232,7 @@ canvas { display: block; width: 100%; }
       <p>Each level shows a target recording. Tune the density of each ion channel until your cell produces the same action potential.</p>
     </div>
     <div class="top-right">
-    <a class="credit" href="https://www.giorginolab.it" target="_blank" rel="noopener">Toni Giorgino · www.giorginolab.it · CNR-IBF</a>
+    <a class="credit" href="https://www.giorginolab.it" target="_blank" rel="noopener">Toni Giorgino · www.giorginolab.it · CNR-IBF</a> <span class="credit">· v0.7.6</span>
     <div class="tally" aria-live="polite"><span class="st">★</span><b id="tally">0</b><span id="tallyOf">/ 21 stars</span></div>
     </div>
   </header>
