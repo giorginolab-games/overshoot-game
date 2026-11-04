@@ -25,7 +25,7 @@ const LENS_UI = (() => {
     gated = R.G && R.GC ? L.currents.filter(c => R.G[c] && R.GC.ch[c]).map(c => {
       const g = R.GC.ch[c]; return { c, vA: halfV(R.GC, g.A, true), vH: g.H ? halfV(R.GC, g.H, false) : NaN };
     }) : [];
-    for (const id of ['lgHead', 'lgNote', 'lg']) $(id).hidden = !gated.length;
+    for (const id of ['lgHead', 'lgNote', 'lg', 'lk', 'lkNote']) $(id).hidden = !gated.length;
   }
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
 
@@ -273,7 +273,7 @@ const LENS_UI = (() => {
     $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
-    drawTrace(i); drawGates(i); drawConc(i);
+    drawTrace(i); drawVGates(i); drawGates(i); drawConc(i);
   }
 
   function drawTrace(i) {
@@ -314,6 +314,45 @@ const LENS_UI = (() => {
   // Per channel: A∞(V) (activation, solid) and H∞(V) (availability, dashed) against V. The vertical line is the present V,
   // the ring is where each gate is heading (steady state at this V), the filled marker is where it is now. The gap between
   // them is the delay; the faint trail is the path (V(t), A(t)) so far, which loops around the curve.
+  const curveAt = (arr, v) => { const f = Math.max(0, Math.min(160, v + 100)), k = Math.min(159, Math.floor(f)); return arr[k] + (arr[k + 1] - arr[k]) * (f - k); };
+  // Simplified, vertical version under the membrane: same columns as the channels above, V on a shared vertical axis,
+  // so the one horizontal line at the present V crosses every activation curve at that channel's own point.
+  function drawVGates(i) {
+    const cv = $('lk'); if (!gated.length) return;
+    const { ctx, w, h } = sizeCanvas(cv, 168), n = L.currents.length, colW = w / n, V = R.V[i], GC = R.GC;
+    const top = 16, bot = h - 8, Y = v => top + (60 - v) / 160 * (bot - top);
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = `9.5px ${css('f-mono')}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    for (const t of [-80, -40, 0, 40]) { const y = Math.round(Y(t)) + .5;
+      ctx.strokeStyle = css(t === 0 ? 'line' : 'grid-minor'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      const lab = String(t).replace('-', '−'), tw = ctx.measureText(lab).width;
+      ctx.fillStyle = css('paper'); ctx.globalAlpha = .85; ctx.fillRect(1, y - 14, tw + 4, 11); ctx.globalAlpha = 1;
+      ctx.fillStyle = css('muted'); ctx.fillText(lab, 3, y - 6); }
+    ctx.fillStyle = css('muted'); ctx.textBaseline = 'top'; ctx.fillText('mV', 3, 2);
+    const yv = Y(Math.max(-100, Math.min(60, V)));
+    for (const g of gated) {
+      const col = css(CH_COL[g.c] || 'muted'), G = R.G[g.c], gc = GC.ch[g.c], cx = (L.currents.indexOf(g.c) + .5) * colW;
+      const pw = Math.min(colW * .8, 96), x0 = cx - pw / 2, X = a => x0 + a * pw, above = V >= g.vA;
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(x0 + .5, top + .5, pw, bot - top);
+      if (isFinite(g.vA)) { ctx.fillStyle = col; ctx.globalAlpha = above ? .16 : .07; ctx.fillRect(x0, top, pw, Y(g.vA) - top); ctx.globalAlpha = 1;
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x0, Math.round(Y(g.vA)) + .5); ctx.lineTo(x0 + pw, Math.round(Y(g.vA)) + .5); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = col; ctx.font = `700 10.5px ${css('f-body')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(short(g.c), cx, 2);
+      for (const [arr, dash, lw] of [[gc.A, [], 2.2], [gc.H, [5, 3], 1.5]]) { if (!arr) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+        for (let k = 0; k < arr.length; k++) { const x = X(arr[k]), y = Y(GC.V[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.setLineDash([]);
+      const mark = (act, target, sq) => { if (act == null) return; const xa = X(act), xt = X(target);
+        if (Math.abs(xa - xt) > 2) { ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xa, yv); ctx.lineTo(xt, yv); ctx.stroke(); }
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.fillStyle = css('panel'); ctx.beginPath(); if (sq) ctx.rect(xt - 4, yv - 4, 8, 8); else ctx.arc(xt, yv, 4.5, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); if (sq) ctx.rect(xa - 3, yv - 3, 6, 6); else ctx.arc(xa, yv, 3.5, 0, 7); ctx.fill(); };
+      ctx.save(); ctx.beginPath(); ctx.rect(x0 - 6, top - 1, pw + 12, bot - top + 2); ctx.clip();
+      if (G.H) mark(G.H[i], curveAt(gc.H, V), true); mark(G.A[i], curveAt(gc.A, V), false); ctx.restore();
+    }
+    // the present membrane potential: one line across every channel
+    ctx.strokeStyle = css('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, yv); ctx.lineTo(w, yv); ctx.stroke();
+    ctx.fillStyle = css('accent'); ctx.font = `700 10.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = yv < top + 14 ? 'top' : 'bottom';
+    ctx.fillText(`V = ${V.toFixed(0)} mV`, w - 4, yv + (yv < top + 14 ? 2 : -2));
+  }
   const GCELL = 214, GMIN = 160;
   const gateState = (g, i) => {
     const A = R.G[g.c].A, H = R.G[g.c].H, a = A[i], d = A[Math.min(A.length - 1, i + 2)] - A[Math.max(0, i - 2)];
@@ -332,7 +371,7 @@ const LENS_UI = (() => {
     gated.forEach((g, n) => {
       const cx = (n % cols) * cw, cy = Math.floor(n / cols) * GCELL, col = css(CH_COL[g.c] || 'muted');
       const px = cx + 28, pw = cw - 40, py = cy + 22, ph = 62, X = x => px + (x + 100) / 160 * pw, Y = a => py + ph * (1 - a);
-      const G = R.G[g.c], at = (arr, v) => { const f = Math.max(0, Math.min(160, v + 100)), k = Math.min(159, Math.floor(f)); return arr[k] + (arr[k + 1] - arr[k]) * (f - k); };
+      const G = R.G[g.c], at = curveAt;
       const Ai = at(GC.ch[g.c].A, V), Hi = G.H ? at(GC.ch[g.c].H, V) : NaN, above = V >= g.vA;
       // frame, activation zone (to the right of the half-activation voltage), grid
       ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, py + .5, pw, ph);

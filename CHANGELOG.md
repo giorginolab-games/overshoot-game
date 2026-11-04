@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+### Added
+- Lens: gate curves drawn vertically under each channel of the membrane view, with V on a shared vertical axis. One horizontal line at the present V crosses every curve at that channel's own threshold; ring and marker show where each gate is heading and where it is.
 
 ## [0.6.0] - 2026-11-04
 ### Added

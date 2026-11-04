@@ -296,6 +296,8 @@ canvas { display: block; width: 100%; }
     </div>
     <div class="lens-event" id="lensEvent" aria-live="off"></div>
     <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
+    <canvas id="lk" role="img" aria-label="Gate curves aligned under each channel, with membrane potential on a shared vertical axis"></canvas>
+    <p class="note" id="lkNote">Under each voltage-gated channel: its gate curves with V on the shared vertical axis. The red line is the membrane potential; it crosses each curve at that channel's own point, and the dashed line marks its activation threshold (the shaded zone above it is where the channel opens). Ring: where the gate is heading; marker: where it is.</p>
     <div class="lens-legend">
       <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
