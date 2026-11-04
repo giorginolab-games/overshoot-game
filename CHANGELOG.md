@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+
+## [0.6.0] - 2026-11-04
 ### Added
 - Level 2: voltage clamp. Twelve steps of the HH squid axon recorded in low-sodium sea water; match the current family and the early/late I–V curves, and find [Na⁺]o from the shift of the early-current reversal (Nernst). New `hhStep`/`hhClamp` models.
 - Levels that already have stars stay unlocked when new levels are inserted before them.
