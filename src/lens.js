@@ -36,38 +36,60 @@ const LENS_UI = (() => {
       const full = b.ion === 'ca' ? mx * 1.25 : Math.max(base, mx) * 1.5, rad = Math.max(dev * 1.25, full * 1e-9);
       return Object.assign(b, { f, base, full, rad, zoom: full / (2 * rad), dec: Math.max(0, Math.min(6, 2 - Math.floor(Math.log10(Math.max(dev, 1e-12))))) });
     });
-    $('lb').hidden = !buckets.length; for (const e of document.querySelectorAll('.lbHead')) e.hidden = !buckets.length;
+    $('lb').hidden = !buckets.length;
+  }
+  // Each bucket sits under the channel(s) that carry its ion: the mean column of those channels is its anchor, and buckets
+  // that would overlap are packed side by side around their anchors. Falls back to a wrapped grid when there is no room.
+  // two significant digits; powers of ten for very small numbers
+  const sig2 = x => { if (!(x > 0)) return '0'; const e = Math.floor(Math.log10(x)); if (e >= -3) return x.toFixed(Math.max(0, 1 - e));
+    return `${(x / 10 ** e).toFixed(1)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`; };
+  const BW = 104, BH = 138;
+  function placeBuckets(w) {
+    const colW = w / L.currents.length, ionOf = c => ION[c] || 'k';
+    const items = buckets.map((b, k) => {
+      let cs = L.currents.filter(c => !isPump(c) && c !== 'IL' && ionOf(c) === b.ion);
+      if (!cs.length) cs = L.currents.filter(c => ionOf(c) === b.ion || isPump(c));
+      const xs = cs.map(c => (L.currents.indexOf(c) + .5) * colW);
+      return { b, k, a: xs.length ? xs.reduce((p, q) => p + q) / xs.length : w / 2 };
+    }).sort((p, q) => p.a - q.a || p.k - q.k);
+    if (items.length * BW > w) return null;
+    let cl = [];
+    for (const it of items) { cl.push({ its: [it], L: it.a });
+      while (cl.length > 1) { const a = cl[cl.length - 2], b = cl[cl.length - 1];
+        if (a.L + a.its.length * BW <= b.L) break;
+        const its = a.its.concat(b.its); cl.splice(cl.length - 2, 2, { its, L: its.reduce((p, q, k) => p + q.a - k * BW, 0) / its.length }); } }
+    let edge = BW / 2; for (const c of cl) { c.L = Math.max(c.L, edge); edge = c.L + c.its.length * BW; }
+    let over = edge - BW / 2 - w; if (over > 0) for (let n = cl.length - 1; n >= 0; n--) { cl[n].L -= over; if (n) over = Math.max(0, cl[n - 1].L + cl[n - 1].its.length * BW - cl[n].L); else cl[0].L = Math.max(cl[0].L, BW / 2); }
+    const pos = []; for (const c of cl) c.its.forEach((it, k) => { pos[it.k] = { x: c.L + k * BW, y: 0 }; });
+    return pos;
   }
   function drawBuckets(i) {
     const cv = $('lb'); if (!buckets.length) return;
-    const w0 = cv.clientWidth || 600, cols = Math.max(1, Math.min(buckets.length, Math.floor(w0 / 200))), rows = Math.ceil(buckets.length / cols);
-    const { ctx, w, h } = sizeCanvas(cv, rows * 110), cw = w / cols; ctx.clearRect(0, 0, w, h);
+    const w0 = cv.clientWidth || 600; let pos = placeBuckets(w0), rows = 1;
+    if (!pos) { const cols = Math.max(1, Math.min(buckets.length, Math.floor(w0 / BW))); rows = Math.ceil(buckets.length / cols);
+      pos = buckets.map((_, n) => ({ x: (n % cols + .5) * (w0 / cols), y: Math.floor(n / cols) * BH })); }
+    const { ctx, w, h } = sizeCanvas(cv, rows * BH); ctx.clearRect(0, 0, w, h);
     buckets.forEach((b, n) => {
-      const cx = (n % cols) * cw + 8, cy = Math.floor(n / cols) * 110 + 8, col = css('ion-' + b.ion), H = 80, bw = 50, bb = 38;
-      const v = b.data[i] * b.f, frac = Math.max(0, Math.min(1, v / b.full)), f0 = Math.max(0, Math.min(1, b.base / b.full));
-      const yb = cy + H, yl = yb - frac * H;
-      const outline = () => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + (bw - bb) / 2, yb); ctx.lineTo(cx + (bw + bb) / 2, yb); ctx.lineTo(cx + bw, cy); };
-      // liquid, clipped to the bucket
+      const xc = pos[n].x, cy = pos[n].y + 6, col = css('ion-' + b.ion), H = 66, bw = 46, bb = 36, bt = cy + 16, yb = bt + H;
+      const cx = xc - bw / 2 - 6;
+      const v = b.data[i] * b.f, frac = Math.max(0, Math.min(1, v / b.full)), f0 = Math.max(0, Math.min(1, b.base / b.full)), yl = yb - frac * H;
+      const outline = () => { ctx.beginPath(); ctx.moveTo(cx, bt); ctx.lineTo(cx + (bw - bb) / 2, yb); ctx.lineTo(cx + (bw + bb) / 2, yb); ctx.lineTo(cx + bw, bt); };
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = col; ctx.font = `700 11.5px ${css('f-body')}`; ctx.fillText(b.label, xc, cy);
       ctx.save(); outline(); ctx.closePath(); ctx.clip(); ctx.fillStyle = col; ctx.globalAlpha = .5; ctx.fillRect(cx - 2, yl, bw + 4, yb - yl + 2);
       ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 2, yl); ctx.lineTo(cx + bw + 2, yl); ctx.stroke(); ctx.restore();
-      // start level
-      const y0 = yb - f0 * H; ctx.strokeStyle = css('ink'); ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(cx - 5, y0); ctx.lineTo(cx + bw + 5, y0); ctx.stroke(); ctx.setLineDash([]);
+      const y0 = yb - f0 * H; ctx.strokeStyle = css('ink'); ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(cx - 4, y0); ctx.lineTo(cx + bw + 4, y0); ctx.stroke(); ctx.setLineDash([]);
       outline(); ctx.strokeStyle = css('ink'); ctx.lineWidth = 2; ctx.stroke();
       // zoom tube: centre = starting level, full height = ±rad
-      const tx = cx + bw + 14, tw = 10;
-      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(tx + .5, cy + .5, tw, H);
-      const ym = cy + H / 2, dy = Math.max(-H / 2, Math.min(H / 2, -(v - b.base) / (2 * b.rad) * H));
+      const tx = cx + bw + 8, tw = 8, ym = bt + H / 2, dy = Math.max(-H / 2, Math.min(H / 2, -(v - b.base) / (2 * b.rad) * H));
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(tx + .5, bt + .5, tw, H);
       ctx.fillStyle = col; ctx.globalAlpha = .55; ctx.fillRect(tx + 1, Math.min(ym, ym + dy), tw - 1, Math.abs(dy)); ctx.globalAlpha = 1;
-      ctx.strokeStyle = css('ink'); ctx.beginPath(); ctx.moveTo(tx - 3, ym + .5); ctx.lineTo(tx + tw + 3, ym + .5); ctx.stroke();
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(tx + tw / 2 + .5, ym + dy, 3.5, 0, 7); ctx.fill();
-      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText((b.zoom < 1000 ? `zoom ×${Math.round(b.zoom)}` : `zoom ${sci(b.zoom, 0)}-fold`), tx + tw / 2, yb + 4);
+      ctx.strokeStyle = css('ink'); ctx.beginPath(); ctx.moveTo(tx - 2, ym + .5); ctx.lineTo(tx + tw + 2, ym + .5); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(tx + tw / 2 + .5, ym + dy, 3.2, 0, 7); ctx.fill();
       // numbers
-      const x1 = tx + tw + 12, d = v - b.base;
-      ctx.textAlign = 'left'; ctx.fillStyle = col; ctx.font = `700 12.5px ${css('f-body')}`; ctx.fillText(b.label, x1, cy);
-      ctx.fillStyle = css('ink'); ctx.font = `700 13px ${css('f-mono')}`; ctx.fillText(`${v.toFixed(b.dec)} ${b.unit}`, x1, cy + 19);
-      ctx.fillStyle = css('muted'); ctx.font = `11px ${css('f-mono')}`;
-      ctx.fillText(`${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(b.dec)} since start`, x1, cy + 38);
-      ctx.fillText(`bucket full = ${Number(b.full.toPrecision(2))} ${b.unit}`, x1, cy + 54);
+      const d = v - b.base;
+      ctx.textAlign = 'center'; ctx.fillStyle = css('ink'); ctx.font = `700 11.5px ${css('f-mono')}`; ctx.fillText(`${Number(v.toPrecision(4))} ${b.unit}`, xc, yb + 5);
+      ctx.fillStyle = css('muted'); ctx.font = `10.5px ${css('f-mono')}`; ctx.fillText(`Δ ${d >= 0 ? '+' : '−'}${sig2(Math.abs(d))}`, xc, yb + 20);
+      ctx.font = `9.5px ${css('f-mono')}`; ctx.fillText(b.zoom < 1000 ? `tube ×${Math.round(b.zoom)}` : `tube ${sci(b.zoom, 0)}`, xc, yb + 34);
     });
   }
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
@@ -362,8 +384,8 @@ const LENS_UI = (() => {
   // so the one horizontal line at the present V crosses every activation curve at that channel's own point.
   function drawVGates(i) {
     const cv = $('lk'); if (!gated.length) return;
-    const { ctx, w, h } = sizeCanvas(cv, 168), n = L.currents.length, colW = w / n, V = R.V[i], GC = R.GC;
-    const top = 16, bot = h - 8, Y = v => top + (60 - v) / 160 * (bot - top);
+    const { ctx, w, h } = sizeCanvas(cv, 196), n = L.currents.length, colW = w / n, V = R.V[i], GC = R.GC;
+    const top = 16, bot = h - 30, Y = v => top + (60 - v) / 160 * (bot - top);
     ctx.clearRect(0, 0, w, h);
     ctx.font = `9.5px ${css('f-mono')}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     for (const t of [-80, -40, 0, 40]) { const y = Math.round(Y(t)) + .5;
@@ -388,6 +410,11 @@ const LENS_UI = (() => {
         if (Math.abs(xa - xt) > 2) { ctx.strokeStyle = css('accent'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xa, yv); ctx.lineTo(xt, yv); ctx.stroke(); }
         ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.fillStyle = css('panel'); ctx.beginPath(); if (sq) ctx.rect(xt - 4, yv - 4, 8, 8); else ctx.arc(xt, yv, 4.5, 0, 7); ctx.fill(); ctx.stroke();
         ctx.fillStyle = col; ctx.beginPath(); if (sq) ctx.rect(xa - 3, yv - 3, 6, 6); else ctx.arc(xa, yv, 3.5, 0, 7); ctx.fill(); };
+      // x axis: 0 = closed (left), 1 = open (right); the dashed curve reads inactivated (left) to available (right)
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textBaseline = 'top';
+      const wide = pw >= 56; // narrow columns (phones) get 0 / 1 instead of words
+      ctx.textAlign = 'left'; ctx.fillText(wide ? 'closed' : '0', x0, bot + 3); ctx.textAlign = 'right'; ctx.fillText(wide ? 'open' : '1', x0 + pw, bot + 3);
+      if (G.H && pw >= 70) { ctx.textAlign = 'left'; ctx.fillText(pw >= 120 ? 'inactivated' : 'inact.', x0, bot + 15); ctx.textAlign = 'right'; ctx.fillText(pw >= 120 ? 'available' : 'avail.', x0 + pw, bot + 15); }
       ctx.save(); ctx.beginPath(); ctx.rect(x0 - 6, top - 1, pw + 12, bot - top + 2); ctx.clip();
       if (G.H) mark(G.H[i], curveAt(gc.H, V), true); mark(G.A[i], curveAt(gc.A, V), false); ctx.restore();
     }

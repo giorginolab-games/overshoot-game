@@ -183,7 +183,7 @@ canvas { display: block; width: 100%; }
 @media (max-width: 560px) { #lm { height: 300px; } .lens-box { padding: 14px 12px; } .lens-read { margin-left: 0; width: 100%; } }
 #lg { cursor: ew-resize; touch-action: none; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
 #lk, #lb { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
-#lk { margin-top: -4px; }
+#lk, #lb { margin-top: -4px; }
 #lgHead[hidden], #lgNote[hidden], #lg[hidden], #lk[hidden], #lkNote[hidden] { display: none; }
 #lv { height: 90px; cursor: ew-resize; touch-action: none; }
 #lc { cursor: ew-resize; touch-action: none; }
@@ -299,15 +299,13 @@ canvas { display: block; width: 100%; }
     <div class="lens-event" id="lensEvent" aria-live="off"></div>
     <canvas id="lm" aria-label="Animated membrane with ion channels and ion flow"></canvas>
     <canvas id="lk" role="img" aria-label="Gate curves aligned under each channel, with membrane potential on a shared vertical axis"></canvas>
-    <p class="note" id="lkNote">Under each voltage-gated channel: its gate curves with V on the shared vertical axis. The red line is the membrane potential; it crosses each curve at that channel's own point, and the dashed line marks its activation threshold (the shaded zone above it is where the channel opens). Ring: where the gate is heading; marker: where it is.</p>
+    <canvas id="lb" role="img" aria-label="Buckets showing the concentration of each ion species inside the cell, with a magnified gauge of the change"></canvas>
+    <p class="note" id="lkNote">Under each voltage-gated channel: its steady-state activation curve (solid), with the fraction of channels open running from <b>closed</b> on the left to <b>open</b> on the right and membrane potential on the shared vertical axis. The dashed curve is inactivation, from inactivated (left) to available (right). The red line is the membrane potential; it crosses each curve at that channel's own point, and the dashed horizontal line marks its activation threshold (the shaded zone above it is where the channel opens). Ring: where the gate is heading; marker: where it is. Buckets below show the concentration of each ion inside the cell, under the channels that carry it: the dashed line is the starting level, and one action potential moves so few ions that the thin tube beside each bucket magnifies the change (tube ×N).</p>
     <div class="lens-legend">
       <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
     </div>
-    <h3 class="lbHead">Inside the cell: ion buckets</h3>
-    <p class="note lbHead">Each bucket is filled to the present concentration of that ion inside the cell (the dashed line is where it started). One action potential moves only a tiny fraction of the ions, so the thin <b>zoom tube</b> beside each bucket magnifies the change around the starting level.</p>
-    <canvas id="lb" role="img" aria-label="Buckets showing the concentration of each ion species inside the cell, with a magnified gauge of the change"></canvas>
     <h3 id="lgHead">Gates and thresholds</h3>
     <p class="note" id="lgNote">Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far. Below each plot, the time constant τ (log scale) shows how slowly the gates follow at every voltage: a gap closes fast where τ is small and slowly where it is large.</p>
     <canvas id="lg" role="img" aria-label="Gate steady-state curves versus membrane potential, with the present state of each gate"></canvas>
