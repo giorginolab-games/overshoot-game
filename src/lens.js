@@ -27,6 +27,49 @@ const LENS_UI = (() => {
     }) : [];
     for (const id of ['lgHead', 'lgNote', 'lg', 'lk', 'lkNote']) $(id).hidden = !gated.length;
   }
+  // ---- ion buckets: absolute concentration inside the cell, with a zoom tube for the tiny change ----
+  let buckets = [];
+  function buildBuckets() {
+    buckets = (L.lens.buckets ? L.lens.buckets(R) : []).map(b => {
+      const f = b.unit === 'µM' ? 1000 : 1, base = b.data[0] * f; let mx = -Infinity, dev = 0;
+      for (const x of b.data) { mx = Math.max(mx, x * f); dev = Math.max(dev, Math.abs(x * f - base)); }
+      const full = b.ion === 'ca' ? mx * 1.25 : Math.max(base, mx) * 1.5, rad = Math.max(dev * 1.25, full * 1e-9);
+      return Object.assign(b, { f, base, full, rad, zoom: full / (2 * rad), dec: Math.max(0, Math.min(6, 2 - Math.floor(Math.log10(Math.max(dev, 1e-12))))) });
+    });
+    $('lb').hidden = !buckets.length; for (const e of document.querySelectorAll('.lbHead')) e.hidden = !buckets.length;
+  }
+  function drawBuckets(i) {
+    const cv = $('lb'); if (!buckets.length) return;
+    const w0 = cv.clientWidth || 600, cols = Math.max(1, Math.min(buckets.length, Math.floor(w0 / 200))), rows = Math.ceil(buckets.length / cols);
+    const { ctx, w, h } = sizeCanvas(cv, rows * 110), cw = w / cols; ctx.clearRect(0, 0, w, h);
+    buckets.forEach((b, n) => {
+      const cx = (n % cols) * cw + 8, cy = Math.floor(n / cols) * 110 + 8, col = css('ion-' + b.ion), H = 80, bw = 50, bb = 38;
+      const v = b.data[i] * b.f, frac = Math.max(0, Math.min(1, v / b.full)), f0 = Math.max(0, Math.min(1, b.base / b.full));
+      const yb = cy + H, yl = yb - frac * H;
+      const outline = () => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + (bw - bb) / 2, yb); ctx.lineTo(cx + (bw + bb) / 2, yb); ctx.lineTo(cx + bw, cy); };
+      // liquid, clipped to the bucket
+      ctx.save(); outline(); ctx.closePath(); ctx.clip(); ctx.fillStyle = col; ctx.globalAlpha = .5; ctx.fillRect(cx - 2, yl, bw + 4, yb - yl + 2);
+      ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 2, yl); ctx.lineTo(cx + bw + 2, yl); ctx.stroke(); ctx.restore();
+      // start level
+      const y0 = yb - f0 * H; ctx.strokeStyle = css('ink'); ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(cx - 5, y0); ctx.lineTo(cx + bw + 5, y0); ctx.stroke(); ctx.setLineDash([]);
+      outline(); ctx.strokeStyle = css('ink'); ctx.lineWidth = 2; ctx.stroke();
+      // zoom tube: centre = starting level, full height = ±rad
+      const tx = cx + bw + 14, tw = 10;
+      ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(tx + .5, cy + .5, tw, H);
+      const ym = cy + H / 2, dy = Math.max(-H / 2, Math.min(H / 2, -(v - b.base) / (2 * b.rad) * H));
+      ctx.fillStyle = col; ctx.globalAlpha = .55; ctx.fillRect(tx + 1, Math.min(ym, ym + dy), tw - 1, Math.abs(dy)); ctx.globalAlpha = 1;
+      ctx.strokeStyle = css('ink'); ctx.beginPath(); ctx.moveTo(tx - 3, ym + .5); ctx.lineTo(tx + tw + 3, ym + .5); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(tx + tw / 2 + .5, ym + dy, 3.5, 0, 7); ctx.fill();
+      ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText((b.zoom < 1000 ? `zoom ×${Math.round(b.zoom)}` : `zoom ${sci(b.zoom, 0)}-fold`), tx + tw / 2, yb + 4);
+      // numbers
+      const x1 = tx + tw + 12, d = v - b.base;
+      ctx.textAlign = 'left'; ctx.fillStyle = col; ctx.font = `700 12.5px ${css('f-body')}`; ctx.fillText(b.label, x1, cy);
+      ctx.fillStyle = css('ink'); ctx.font = `700 13px ${css('f-mono')}`; ctx.fillText(`${v.toFixed(b.dec)} ${b.unit}`, x1, cy + 19);
+      ctx.fillStyle = css('muted'); ctx.font = `11px ${css('f-mono')}`;
+      ctx.fillText(`${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(b.dec)} since start`, x1, cy + 38);
+      ctx.fillText(`bucket full = ${Number(b.full.toPrecision(2))} ${b.unit}`, x1, cy + 54);
+    });
+  }
   let parts = [], acc = {}, phase = {}, raf = 0, last = 0, dvmax = 1, lastFocus = null, NPER = 1, NBASE = 1, densIdx = 1, slow = 1;
 
   function sizeCanvas(cv, h) {
@@ -57,7 +100,7 @@ const LENS_UI = (() => {
       NBASE = nice(Math.max(1, mx / DOTS_TARGET)); densIdx = 1; NPER = Math.max(1, NBASE * DENS[densIdx]);
     }
     dvmax = 0; for (let i = 1; i < R.V.length; i++) dvmax = Math.max(dvmax, Math.abs(R.V[i] - R.V[i - 1]) / (R.t[i] - R.t[i - 1]));
-    buildGates();
+    buildGates(); buildBuckets();
     tm = 0; parts = []; acc = {}; phase = {}; playing = true; dir = 1; speedIdx = 1;
     tEnd = R.t[R.t.length - 1];
     stepMs = Math.max(R.t[1] - R.t[0], tEnd / 3000);
@@ -273,7 +316,7 @@ const LENS_UI = (() => {
     $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
-    drawTrace(i); drawVGates(i); drawGates(i); drawConc(i);
+    drawTrace(i); drawBuckets(i); drawVGates(i); drawGates(i); drawConc(i);
   }
 
   function drawTrace(i) {

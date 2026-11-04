@@ -147,6 +147,12 @@
           "col": "ion-k"
         }
       ],
+      "buckets": [
+        {"ion": "na", "label": "Na⁺", "kind": "series", "from": "Nai"},
+        {"ion": "k", "label": "K⁺", "kind": "series", "from": "Ki"},
+        {"ion": "ca", "label": "Ca²⁺ (cytosol)", "unit": "µM", "kind": "series", "from": "Cai"},
+        {"ion": "ca", "label": "Ca²⁺ (SR store)", "kind": "series", "from": "Casr"}
+      ],
       "note": "Concentrations come straight from the model. The Ca²⁺ transient is released from the sarcoplasmic reticulum (SR) by the trigger Ca²⁺ entering through Cav1.2, and it is what makes the cell contract. One beat shifts cytosolic Na⁺ and K⁺ by only tens of µM out of about 11 and 138 mM. Watch Na⁺ jump at the upstroke, then fall as the Na⁺/K⁺ pump works through the beat. Over minutes of pacing the two balance."
     }
   }

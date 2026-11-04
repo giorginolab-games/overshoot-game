@@ -182,6 +182,11 @@ const CORE = (() => {
     return Object.assign({}, d, {
       note, sim: d.sim ? LENS_SIMS[d.sim] : L.sim,
       conc: R => d.conc.map(s => ({ label: s.label, unit: s.unit, data: CONC_KINDS[s.kind || 'dconc'](s, R), d: s.d, col: s.col })),
+      // absolute concentrations (in mM) of the ions inside the cell, for the lens buckets; dconc is relative to the stated resting value,
+      // caShell is in µM and series are model state variables in mM
+      buckets: R => (d.buckets || []).map(sp => { const raw = CONC_KINDS[sp.kind](sp, R), data = new Float64Array(raw.length);
+        for (let i = 0; i < raw.length; i++) data[i] = sp.kind === 'dconc' ? sp.base + raw[i] / 1000 : sp.kind === 'caShell' ? raw[i] / 1000 : raw[i];
+        return { ion: sp.ion, label: sp.label, unit: sp.unit || 'mM', data }; }),
       ions: (p, R, i) => ({ out: fillIons(ions.out, p, R, i), in: fillIons(ions.in, p, R, i) }),
     });
   }

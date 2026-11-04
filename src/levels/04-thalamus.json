@@ -110,6 +110,11 @@
         "col": "ion-na"
       }
     ],
+    "buckets": [
+      {"ion": "na", "label": "Na⁺", "base": 12, "kind": "dconc", "names": ["INa"], "SV": 3000, "z": 1},
+      {"ion": "k", "label": "K⁺", "base": 140, "kind": "dconc", "names": ["IKd"], "SV": 3000, "z": 1},
+      {"ion": "ca", "label": "Ca²⁺ (submembrane)", "unit": "µM", "kind": "caShell", "depth": 1, "tau": 5, "cainf": 0.00024}
+    ],
     "note": "Submembrane Ca²⁺ is estimated from the T-type current with the shell model of Destexhe et al. (1 µm shell, τ = 5 ms). The Ca²⁺ spike after release raises it several-fold, which is how a rebound burst can switch on Ca²⁺-activated K⁺ channels and gene expression. Δ[Na⁺] assumes a 20 µm soma."
   }
 }

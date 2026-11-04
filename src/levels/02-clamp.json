@@ -110,6 +110,10 @@
         "col": "ion-k"
       }
     ],
+    "buckets": [
+      {"ion": "na", "label": "Na⁺", "base": 50, "kind": "dconc", "names": ["INa"], "SV": 80, "z": 1},
+      {"ion": "k", "label": "K⁺", "base": 400, "kind": "dconc", "names": ["IK"], "SV": 80, "z": 1}
+    ],
     "note": "One voltage step, from −65 to 0 mV, of a 500 µm axon (surface-to-volume ratio 80 cm⁻¹). The voltage does not move after the step, so every change in current here comes from the gates: Na⁺ channels open then inactivate, K⁺ channels open slowly and stay open. Compare the timing with the early and late currents in the main view."
   }
 }

@@ -99,6 +99,10 @@
         "col": "ion-k"
       }
     ],
+    "buckets": [
+      {"ion": "na", "label": "Na⁺", "base": 50, "kind": "dconc", "names": ["INa"], "SV": 80, "z": 1},
+      {"ion": "k", "label": "K⁺", "base": 400, "kind": "dconc", "names": ["IK"], "SV": 80, "z": 1}
+    ],
     "note": "Estimated from the currents for a 500 µm squid axon (surface-to-volume ratio 80 cm⁻¹). One spike raises internal Na⁺ by well under a micromolar, against about 50 mM already there. That is why an axon with its pumps poisoned can still fire many thousands of spikes: an action potential needs only a tiny charge transfer, not a change in concentration."
   }
 }

@@ -5,7 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-11-04
 ### Added
+- Lens: ion buckets. One bucket per species inside the cell (Na⁺, K⁺, Ca²⁺, and the SR store in the myocyte), filled to the present concentration, with a zoom tube that magnifies the change around the starting value. Defined per level in the lens JSON (`buckets`).
 - Lens: gate curves drawn vertically under each channel of the membrane view, with V on a shared vertical axis. One horizontal line at the present V crosses every curve at that channel's own threshold; ring and marker show where each gate is heading and where it is.
 
 ## [0.6.0] - 2026-11-04

@@ -111,6 +111,10 @@
         "col": "ion-k"
       }
     ],
+    "buckets": [
+      {"ion": "na", "label": "Na⁺", "base": 12, "kind": "dconc", "names": ["INa"], "SV": 3000, "z": 1},
+      {"ion": "k", "label": "K⁺", "base": 140, "kind": "dconc", "names": ["IKd", "IM"], "SV": 3000, "z": 1}
+    ],
     "note": "Estimated from the currents for a 20 µm spherical soma (surface-to-volume ratio 3000 cm⁻¹). Each spike adds a step of Na⁺ and removes a step of K⁺. In a thin dendrite or axon (much larger surface-to-volume ratio) the same train changes concentrations far more, which is why small neurites depend on the Na⁺/K⁺ pump."
   }
 }

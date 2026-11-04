@@ -112,4 +112,17 @@ for (const id of ['squid', 'pyramidal', 'thalamus', 'epi']) {
   for (const c in R.GC.ch) for (const k of ['tA', 'tH']) { const a = R.GC.ch[c][k]; if (a) ok(a.every(x => x > 0 && isFinite(x)), `${id}/${c}: ${k} positive`); }
 }
 
+// Lens buckets: absolute concentrations in mM start inside physiological ranges and stay positive
+{ const rest = { squid: [[49, 51], [399, 401]], clamp: [[49, 51], [399, 401]], pyramidal: [[11.9, 12.1], [139, 141]],
+    thalamus: [[11.9, 12.1], [139, 141], [0.0001, 0.0004]], epi: [[11, 11.6], [137, 139], [0.00004, 0.0001]] }; // Na⁺, K⁺, Ca²⁺ (mM)
+  for (const id in rest) {
+    const L = C.LEVELS.find(l => l.id === id), R = L.lens.sim(L.target), B = L.lens.buckets(R);
+    ok(B.length >= rest[id].length, `${id}: ${B.length} buckets`);
+    rest[id].forEach(([lo, hi], k) => ok(B[k].data[0] >= lo && B[k].data[0] <= hi, `${id}/${B[k].label}: starts at ${B[k].data[0]} mM, expected ${lo}–${hi}`));
+    ok(B.every(b => b.data.every(x => x > 0 && isFinite(x))), `${id}: bucket data positive`);
+  }
+  const L = C.LEVELS.find(l => l.id === 'squid'), B = L.lens.buckets(L.lens.sim(L.target));
+  ok(Math.abs(B[0].data[B[0].data.length - 1] - 50) < 0.01, 'squid: one spike changes internal Na⁺ by < 0.01 mM');
+  ok(B[0].data[B[0].data.length - 1] > 50 && B[1].data[B[1].data.length - 1] < 400, 'squid: Na⁺ gained, K⁺ lost'); }
+
 console.log(`${n} checks passed`);
