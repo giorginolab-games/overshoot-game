@@ -602,41 +602,17 @@ function MODELS_FACTORY() {
       c.Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
     }
     // gates (Rush–Larsen)
-    const gi = tnnpInf(V, P.epi), minf = gi.minf;
-    const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
-    const hinf = gi.hinf;
-    let ah, bh, aj, bj;
-    if (V < -40) {
-      ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
-      aj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23)));
-      bj = 0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
-    } else {
-      ah = 0; bh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1)));
-      aj = 0; bj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)));
-    }
-    c.m = minf + (c.m - minf) * exp(-dt / (am * bm));
-    c.h = hinf + (c.h - hinf) * exp(-dt * (ah + bh));
-    c.j = hinf + (c.j - hinf) * exp(-dt * (aj + bj));
-    const xr1inf = gi.xr1inf;
-    const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
-    c.xr1 = xr1inf + (c.xr1 - xr1inf) * exp(-dt / txr1);
-    const xr2inf = gi.xr2inf;
-    const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
-    c.xr2 = xr2inf + (c.xr2 - xr2inf) * exp(-dt / txr2);
-    const xsinf = gi.xsinf;
-    const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
-    c.xs = xsinf + (c.xs - xsinf) * exp(-dt / txs);
-    const rinf = gi.rinf, tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
-    c.r = rinf + (c.r - rinf) * exp(-dt / tr);
-    const sinf = gi.sinf;
-    const ts = P.epi ? 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3 : 1000 * exp(-((V + 67) ** 2) / 1000) + 8;
-    c.s = sinf + (c.s - sinf) * exp(-dt / ts);
-    const dinf = gi.dinf;
-    const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
-    c.d = dinf + (c.d - dinf) * exp(-dt / td);
-    const finf = gi.finf;
-    const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
-    c.f = finf + (c.f - finf) * exp(-dt / tf);
+    const gi = tnnpInf(V, P.epi), t = tnnpTau(V, P.epi); // both write the shared scratch GI; gi === t
+    c.m = gi.minf + (c.m - gi.minf) * exp(-dt / t.tm);
+    c.h = gi.hinf + (c.h - gi.hinf) * exp(-dt * t.kh);
+    c.j = gi.hinf + (c.j - gi.hinf) * exp(-dt * t.kj);
+    c.xr1 = gi.xr1inf + (c.xr1 - gi.xr1inf) * exp(-dt / t.txr1);
+    c.xr2 = gi.xr2inf + (c.xr2 - gi.xr2inf) * exp(-dt / t.txr2);
+    c.xs = gi.xsinf + (c.xs - gi.xsinf) * exp(-dt / t.txs);
+    c.r = gi.rinf + (c.r - gi.rinf) * exp(-dt / t.tr);
+    c.s = gi.sinf + (c.s - gi.sinf) * exp(-dt / t.ts);
+    c.d = gi.dinf + (c.d - gi.dinf) * exp(-dt / t.td);
+    c.f = gi.finf + (c.f - gi.finf) * exp(-dt / t.tf);
     const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
       0.2 / (1 + exp((Cai - 0.00075) / 0.0008)) + 0.23) / 1.46;
     const fCan = fCainf + (c.fCa - fCainf) * exp(-dt / C.taufca);
@@ -789,7 +765,7 @@ function MODELS_FACTORY() {
       GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
   }
 
-  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpStep, tnnpInf, tnnpTau, tnnpParams, TNNP_INIT, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
+  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpStep, tnnpInf, tnnpTau, tnnpParams, TNNP_INIT, TNNP_REF, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 
@@ -803,7 +779,7 @@ const CORE = (() => {
   const TNNP_SS = { V: -86.2797, Cai: 0.0000686316, Casr: 0.486161, Nai: 11.3013, Ki: 138.2946, m: 0.00137201,
     h: 0.772508, j: 0.763843, xr1: 0.000673665, xr2: 0.482087, xs: 0.00300141, r: 2.029e-8, s: 0.999998,
     d: 0.0000196526, f: 0.988952, fCa: 1.006066, g: 0.999943 };
-  const TNNP_REF = { GNa: 14.838, GCaL: 1.75e-4, Gto: 0.294, GKr: 0.096, GKs: 0.245, GK1: 5.405 };
+  const TNNP_REF = M.TNNP_REF;
 
   function crossings(R, thr = 0, from = -Infinity, to = Infinity) {
     const s = [], V = R.V, t = R.t;
@@ -837,7 +813,7 @@ const CORE = (() => {
     }
     const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
     return { rest: at(R, 90), count: s.length, latency: s.length ? s[0] - 100 : 500,
-      adapt, peak: s.length ? mean(peaks) : Math.max(...R.V), trough: troughs.length ? mean(troughs) : at(R, 590) };
+      adapt, peak: s.length ? mean(peaks) : R.V.reduce((a, b) => Math.max(a, b), -Infinity), trough: troughs.length ? mean(troughs) : at(R, 590) };
   }
   function ltsFeatures(R) {
     const pre = crossings(R, 0, 0, 400), post = crossings(R, 0, 400, 700);
@@ -848,7 +824,6 @@ const CORE = (() => {
     const V = R.V, t = R.t, rest = V[0], pk = R.Vmax;
     let ip = 0; for (let i = 0; i < V.length; i++) if (V[i] > V[ip]) ip = i;
     let mn = 1e9; for (let i = ip; i < V.length && t[i] < t[ip] + 40; i++) mn = Math.min(mn, V[i]);
-    let dome = -1e9; for (let i = ip; i < V.length && t[i] < 150; i++) dome = Math.max(dome, V[i]);
     const apd = frac => { const th = pk - (pk - rest) * frac; for (let i = ip; i < V.length; i++) if (V[i] < th) return t[i]; return 600; };
     const spiked = pk > -20;
     return { rest, peak: pk, dvdt: R.dVdtMax, notch: spiked ? Math.max(0, pk - mn) : 0, plateau: at(R, 100),
@@ -942,7 +917,7 @@ const CORE = (() => {
   // Δc(t) in µM from cumulative charge: -∫ΣI dt · (S/V) / (zF); I in µA/cm², t in ms, S/V in cm⁻¹
   function dconc(R, names, SV, z) {
     const n = R.t.length, dt = R.t[1] - R.t[0], out = new Float64Array(n); let q = 0;
-    for (let i = 0; i < n; i++) { out[i] = -q * SV / (z * 96485.3415) * 1e0; for (const c of names) q += R.I[c][i] * dt; }
+    for (let i = 0; i < n; i++) { out[i] = -q * SV / (z * 96485.3415); for (const c of names) q += R.I[c][i] * dt; }
     return out; // (µA/cm²·ms = 1e-9 C/cm²) × cm⁻¹ / (C/mol) × 1e9 µM per mol/cm³ → factors cancel
   }
   function caShell(R, depthUm, tau, cainf) { // Destexhe-style submembrane Ca²⁺ (mM)
@@ -990,6 +965,9 @@ const CORE = (() => {
   for (const L of LEVELS) L.lens = buildLens(L, DATA.shared);
 
   // ---------- lens events: channel state changes and level-defining moments, in cell time ----------
+  // channel → CSS colour token, shared by the main view and the lens
+  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
+    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
   const CH_SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
     IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
   const chName = (L, c) => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : CH_SHORT[c];
@@ -1110,22 +1088,21 @@ const CORE = (() => {
   const STARS = [70, 85, 95];
   const starsFor = s => STARS.filter(x => s >= x).length;
 
-  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF, lensEvents, CH_SHORT };
+  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF, lensEvents, CH_SHORT, CH_COL, chName };
 })();
 if (typeof module !== 'undefined') module.exports = CORE;
 
 // ===== Magnifying lens: slow-motion membrane view ========================
 const LENS_UI = (() => {
   const $ = id => document.getElementById(id);
-  const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  // Resolved CSS variables are cached for the duration of one draw(): theme changes always land between frames.
+  const cssCache = new Map();
+  const css = n => { let v = cssCache.get(n); if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim(); cssCache.set(n, v); } return v; };
   const ION = { INa: 'na', ICaL: 'ca', IT: 'ca', IL: 'lk' }; // everything else carries K⁺
-  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
-    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
-  const SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
-    IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
+  const CH_COL = CORE.CH_COL;
   const E_PER_PA = 6.2415e6, TRAVEL = 1.0, MAXP = 2600, DOTS_TARGET = 500, DENS = [1, 0.2, 0.05];
 
-  let L, p, R, conc, unit, open = false, playing = true, dir = 1, tm = 0, speedIdx = 1, auto = true;
+  let L, p, R, conc, open = false, playing = true, dir = 1, tm = 0, speedIdx = 1, auto = true;
   let events = [], evCur = -2, stepMs = 0.1, tEnd = 1, scrubbing = false;
   const EV_COL = { stim: 'accent', v: 'you', phase: 'ink', conc: 'c-ca', level: 'gold' };
   const evColor = e => e.kind === 'ch' ? (CH_COL[e.ch] || 'muted') : (EV_COL[e.kind] || 'muted');
@@ -1226,12 +1203,12 @@ const LENS_UI = (() => {
   const sci = (x, d = 1) => { if (!(x > 0)) return '0'; const e = Math.floor(Math.log10(x)), m = x / 10 ** e;
     if (e < 3) return x.toFixed(0); return `${m.toFixed(d)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`; };
   const nice = x => { const e = Math.floor(Math.log10(x)), m = x / 10 ** e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * 10 ** e; };
-  const short = c => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : SHORT[c];
+  const short = c => CORE.chName(L, c);
   const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : x.toFixed(3); };
 
   function openLens(level, params) {
     L = level; p = Object.assign({}, params);
-    R = L.lens.sim(p); conc = L.lens.conc(R); unit = L.units.cur;
+    R = L.lens.sim(p); conc = L.lens.conc(R);
     { // ions represented by one dot: largest per-channel total over the trace → about DOTS_TARGET dots
       const dts = (R.t[1] - R.t[0]) / 1000; let mx = 0;
       for (const c of L.currents) { let tot = 0; for (const x of R.I[c]) tot += ionsPerS(c, x) * dts; mx = Math.max(mx, tot); }
@@ -1309,8 +1286,9 @@ const LENS_UI = (() => {
       }
     }
     for (const q of parts) q.s += dtw / TRAVEL;
-    parts = parts.filter(q => q.s < 1);
-    if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+    let w = 0; for (const q of parts) if (q.s < 1) parts[w++] = q;
+    parts.length = w;
+    if (w > MAXP) parts.splice(0, w - MAXP);
     if (!scrubbing) $('lensScrub').value = tm;
     updateEvent();
     draw();
@@ -1366,12 +1344,15 @@ const LENS_UI = (() => {
   }
 
   // ---- drawing ----
+  let lastRead = '', lastScale = '';
   function draw() {
+    cssCache.clear();
     const i = idxAt(tm), V = R.V[i];
     const { ctx, w, h } = sizeCanvas($('lm'));
     const n = L.currents.length, colW = w / n;
     const bandT = Math.round(h * 0.42), bandB = bandT + 34, yTop = 42, yBot = h - 72;
-    const xOf = c => (L.currents.indexOf(c) + 0.5) * colW;
+    const xs = {}; L.currents.forEach((c, k) => { xs[c] = (k + 0.5) * colW; });
+    const xOf = c => xs[c];
     ctx.clearRect(0, 0, w, h);
     // compartments
     ctx.fillStyle = css('paper'); ctx.fillRect(0, 0, w, bandT);
@@ -1451,10 +1432,12 @@ const LENS_UI = (() => {
       if (R.O && R.O[c]) ctx.fillText('Po ' + R.O[c][i].toFixed(2), x, h - 38);
     }
     // readout
-    $('lensRead').innerHTML = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
-    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
+    const read = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
+    if (read !== lastRead) $('lensRead').innerHTML = lastRead = read;
+    const scale = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
+    if (scale !== lastScale) $('lensScale').innerHTML = lastScale = scale;
     drawTrace(i); drawBuckets(i); drawVGates(i); drawGates(i); drawConc(i);
   }
 
@@ -1612,7 +1595,7 @@ const LENS_UI = (() => {
         ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, qy + .5, pw, qh);
         ctx.fillStyle = col; ctx.font = `700 10px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('time constant τ (ms, log scale)', cx + 4, qy - 2);
         ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        const fT = x => x >= 100 ? x.toFixed(0) : x >= 1 ? x.toFixed(0) : x.toPrecision(1);
+        const fT = x => x >= 1 ? x.toFixed(0) : x.toPrecision(1);
         const e0 = Math.ceil(lo + .15), e1 = Math.floor(hi - .15), es = Math.max(1, Math.ceil((e1 - e0 + 1) / 3));
         for (let e = e0; e <= e1; e += es) { const y = Math.round(T(10 ** e)) + .5;
           ctx.strokeStyle = css('grid-minor'); ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px + pw, y); ctx.stroke(); ctx.fillText(fT(10 ** e), px - 4, y); }
@@ -1728,8 +1711,7 @@ const LENS_UI = (() => {
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
-  const CUR_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
-    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
+  const CUR_COL = CORE.CH_COL;
   const CUR_NAME = { INa: 'Na⁺', ICaL: 'Ca²⁺ L-type', IT: 'Ca²⁺ T-type', Ito: 'transient out', IKr: 'K⁺ rapid', IKs: 'K⁺ slow',
     IM: 'K⁺ M-type', IK1: 'K⁺ inward rect.', IK: 'K⁺', IKd: 'K⁺ delayed rect.', IL: 'leak', INaCa: 'Na⁺/Ca²⁺ exch.', INaK: 'Na⁺/K⁺ pump' };
 
@@ -2152,7 +2134,7 @@ const LENS_UI = (() => {
     setBusy(true, 'Recording the target…');
     const Tn = await simulate(L, L.target); if (g !== gen) return;
     T = Tn;
-    let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
+    let hi = -Infinity, lo = Infinity; for (const x of T.V) { hi = Math.max(hi, x); lo = Math.min(lo, x); } const span = hi - lo;
     Tdisp = noisy(T.V, span * 0.004 + (L.noise ?? 0.15));
     curScale = {};
     if (!L.async && L.panel !== 'clamp') { const R0 = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R0.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); } }

@@ -6,7 +6,7 @@ const CORE = (() => {
   const TNNP_SS = { V: -86.2797, Cai: 0.0000686316, Casr: 0.486161, Nai: 11.3013, Ki: 138.2946, m: 0.00137201,
     h: 0.772508, j: 0.763843, xr1: 0.000673665, xr2: 0.482087, xs: 0.00300141, r: 2.029e-8, s: 0.999998,
     d: 0.0000196526, f: 0.988952, fCa: 1.006066, g: 0.999943 };
-  const TNNP_REF = { GNa: 14.838, GCaL: 1.75e-4, Gto: 0.294, GKr: 0.096, GKs: 0.245, GK1: 5.405 };
+  const TNNP_REF = M.TNNP_REF;
 
   function crossings(R, thr = 0, from = -Infinity, to = Infinity) {
     const s = [], V = R.V, t = R.t;
@@ -40,7 +40,7 @@ const CORE = (() => {
     }
     const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
     return { rest: at(R, 90), count: s.length, latency: s.length ? s[0] - 100 : 500,
-      adapt, peak: s.length ? mean(peaks) : Math.max(...R.V), trough: troughs.length ? mean(troughs) : at(R, 590) };
+      adapt, peak: s.length ? mean(peaks) : R.V.reduce((a, b) => Math.max(a, b), -Infinity), trough: troughs.length ? mean(troughs) : at(R, 590) };
   }
   function ltsFeatures(R) {
     const pre = crossings(R, 0, 0, 400), post = crossings(R, 0, 400, 700);
@@ -51,7 +51,6 @@ const CORE = (() => {
     const V = R.V, t = R.t, rest = V[0], pk = R.Vmax;
     let ip = 0; for (let i = 0; i < V.length; i++) if (V[i] > V[ip]) ip = i;
     let mn = 1e9; for (let i = ip; i < V.length && t[i] < t[ip] + 40; i++) mn = Math.min(mn, V[i]);
-    let dome = -1e9; for (let i = ip; i < V.length && t[i] < 150; i++) dome = Math.max(dome, V[i]);
     const apd = frac => { const th = pk - (pk - rest) * frac; for (let i = ip; i < V.length; i++) if (V[i] < th) return t[i]; return 600; };
     const spiked = pk > -20;
     return { rest, peak: pk, dvdt: R.dVdtMax, notch: spiked ? Math.max(0, pk - mn) : 0, plateau: at(R, 100),
@@ -145,7 +144,7 @@ const CORE = (() => {
   // Δc(t) in µM from cumulative charge: -∫ΣI dt · (S/V) / (zF); I in µA/cm², t in ms, S/V in cm⁻¹
   function dconc(R, names, SV, z) {
     const n = R.t.length, dt = R.t[1] - R.t[0], out = new Float64Array(n); let q = 0;
-    for (let i = 0; i < n; i++) { out[i] = -q * SV / (z * 96485.3415) * 1e0; for (const c of names) q += R.I[c][i] * dt; }
+    for (let i = 0; i < n; i++) { out[i] = -q * SV / (z * 96485.3415); for (const c of names) q += R.I[c][i] * dt; }
     return out; // (µA/cm²·ms = 1e-9 C/cm²) × cm⁻¹ / (C/mol) × 1e9 µM per mol/cm³ → factors cancel
   }
   function caShell(R, depthUm, tau, cainf) { // Destexhe-style submembrane Ca²⁺ (mM)
@@ -193,6 +192,9 @@ const CORE = (() => {
   for (const L of LEVELS) L.lens = buildLens(L, DATA.shared);
 
   // ---------- lens events: channel state changes and level-defining moments, in cell time ----------
+  // channel → CSS colour token, shared by the main view and the lens
+  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
+    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
   const CH_SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
     IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
   const chName = (L, c) => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : CH_SHORT[c];
@@ -313,6 +315,6 @@ const CORE = (() => {
   const STARS = [70, 85, 95];
   const starsFor = s => STARS.filter(x => s >= x).length;
 
-  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF, lensEvents, CH_SHORT };
+  return { LEVELS, F, evaluate, starsFor, STARS, TNNP_REF, lensEvents, CH_SHORT, CH_COL, chName };
 })();
 if (typeof module !== 'undefined') module.exports = CORE;

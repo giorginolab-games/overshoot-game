@@ -1,15 +1,14 @@
 // ===== Magnifying lens: slow-motion membrane view ========================
 const LENS_UI = (() => {
   const $ = id => document.getElementById(id);
-  const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  // Resolved CSS variables are cached for the duration of one draw(): theme changes always land between frames.
+  const cssCache = new Map();
+  const css = n => { let v = cssCache.get(n); if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim(); cssCache.set(n, v); } return v; };
   const ION = { INa: 'na', ICaL: 'ca', IT: 'ca', IL: 'lk' }; // everything else carries K⁺
-  const CH_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
-    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
-  const SHORT = { INa: 'Nav', ICaL: 'Cav1.2', IT: 'Cav3.1', Ito: 'Kv4.3', IKr: 'hERG', IKs: 'KCNQ1', IM: 'Kv7',
-    IK1: 'Kir2.1', IK: 'Kv', IKd: 'Kv2', IL: 'leak', INaCa: 'NCX1', INaK: 'Na/K pump' };
+  const CH_COL = CORE.CH_COL;
   const E_PER_PA = 6.2415e6, TRAVEL = 1.0, MAXP = 2600, DOTS_TARGET = 500, DENS = [1, 0.2, 0.05];
 
-  let L, p, R, conc, unit, open = false, playing = true, dir = 1, tm = 0, speedIdx = 1, auto = true;
+  let L, p, R, conc, open = false, playing = true, dir = 1, tm = 0, speedIdx = 1, auto = true;
   let events = [], evCur = -2, stepMs = 0.1, tEnd = 1, scrubbing = false;
   const EV_COL = { stim: 'accent', v: 'you', phase: 'ink', conc: 'c-ca', level: 'gold' };
   const evColor = e => e.kind === 'ch' ? (CH_COL[e.ch] || 'muted') : (EV_COL[e.kind] || 'muted');
@@ -110,12 +109,12 @@ const LENS_UI = (() => {
   const sci = (x, d = 1) => { if (!(x > 0)) return '0'; const e = Math.floor(Math.log10(x)), m = x / 10 ** e;
     if (e < 3) return x.toFixed(0); return `${m.toFixed(d)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`; };
   const nice = x => { const e = Math.floor(Math.log10(x)), m = x / 10 ** e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * 10 ** e; };
-  const short = c => (c === 'INa' && L.currents.includes('ICaL')) ? 'Nav1.5' : SHORT[c];
+  const short = c => CORE.chName(L, c);
   const sig = x => { const a = Math.abs(x); return a >= 100 ? x.toFixed(0) : a >= 10 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : x.toFixed(3); };
 
   function openLens(level, params) {
     L = level; p = Object.assign({}, params);
-    R = L.lens.sim(p); conc = L.lens.conc(R); unit = L.units.cur;
+    R = L.lens.sim(p); conc = L.lens.conc(R);
     { // ions represented by one dot: largest per-channel total over the trace → about DOTS_TARGET dots
       const dts = (R.t[1] - R.t[0]) / 1000; let mx = 0;
       for (const c of L.currents) { let tot = 0; for (const x of R.I[c]) tot += ionsPerS(c, x) * dts; mx = Math.max(mx, tot); }
@@ -193,8 +192,9 @@ const LENS_UI = (() => {
       }
     }
     for (const q of parts) q.s += dtw / TRAVEL;
-    parts = parts.filter(q => q.s < 1);
-    if (parts.length > MAXP) parts.splice(0, parts.length - MAXP);
+    let w = 0; for (const q of parts) if (q.s < 1) parts[w++] = q;
+    parts.length = w;
+    if (w > MAXP) parts.splice(0, w - MAXP);
     if (!scrubbing) $('lensScrub').value = tm;
     updateEvent();
     draw();
@@ -250,12 +250,15 @@ const LENS_UI = (() => {
   }
 
   // ---- drawing ----
+  let lastRead = '', lastScale = '';
   function draw() {
+    cssCache.clear();
     const i = idxAt(tm), V = R.V[i];
     const { ctx, w, h } = sizeCanvas($('lm'));
     const n = L.currents.length, colW = w / n;
     const bandT = Math.round(h * 0.42), bandB = bandT + 34, yTop = 42, yBot = h - 72;
-    const xOf = c => (L.currents.indexOf(c) + 0.5) * colW;
+    const xs = {}; L.currents.forEach((c, k) => { xs[c] = (k + 0.5) * colW; });
+    const xOf = c => xs[c];
     ctx.clearRect(0, 0, w, h);
     // compartments
     ctx.fillStyle = css('paper'); ctx.fillRect(0, 0, w, bandT);
@@ -335,10 +338,12 @@ const LENS_UI = (() => {
       if (R.O && R.O[c]) ctx.fillText('Po ' + R.O[c][i].toFixed(2), x, h - 38);
     }
     // readout
-    $('lensRead').innerHTML = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
-    $('lensScale').innerHTML = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
+    const read = `t = <b>${tm.toFixed(tm < 100 ? 2 : 1)}</b> ms · V = <b>${V.toFixed(1)}</b> mV`;
+    if (read !== lastRead) $('lensRead').innerHTML = lastRead = read;
+    const scale = `<b>1 dot = ${sci(NPER, 0)} ions</b> · ${L.lens.scope} · ` +
       (playing ? `time slowed <b>${slow >= 100 ? Math.round(slow).toLocaleString() : slow.toFixed(0)}×</b>${dir < 0 ? ' · playing backwards (ions still move the physical way)' : ''}`
         : `<b>paused</b> · ions keep flowing at the rate of this instant, shown as if slowed ${Math.round(slow).toLocaleString()}×`);
+    if (scale !== lastScale) $('lensScale').innerHTML = lastScale = scale;
     drawTrace(i); drawBuckets(i); drawVGates(i); drawGates(i); drawConc(i);
   }
 
@@ -496,7 +501,7 @@ const LENS_UI = (() => {
         ctx.strokeStyle = css('line'); ctx.lineWidth = 1; ctx.strokeRect(px + .5, qy + .5, pw, qh);
         ctx.fillStyle = col; ctx.font = `700 10px ${css('f-body')}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('time constant τ (ms, log scale)', cx + 4, qy - 2);
         ctx.fillStyle = css('muted'); ctx.font = `9.5px ${css('f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        const fT = x => x >= 100 ? x.toFixed(0) : x >= 1 ? x.toFixed(0) : x.toPrecision(1);
+        const fT = x => x >= 1 ? x.toFixed(0) : x.toPrecision(1);
         const e0 = Math.ceil(lo + .15), e1 = Math.floor(hi - .15), es = Math.max(1, Math.ceil((e1 - e0 + 1) / 3));
         for (let e = e0; e <= e1; e += es) { const y = Math.round(T(10 ** e)) + .5;
           ctx.strokeStyle = css('grid-minor'); ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px + pw, y); ctx.stroke(); ctx.fillText(fT(10 ** e), px - 4, y); }

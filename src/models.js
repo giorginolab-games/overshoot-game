@@ -258,41 +258,17 @@ function MODELS_FACTORY() {
       c.Ki += dt * (-(IK1 + Ito + IKr + IKs - 2 * INaK + IpK + Ist) * C.Cm / (C.Vc * C.F));
     }
     // gates (Rush–Larsen)
-    const gi = tnnpInf(V, P.epi), minf = gi.minf;
-    const am = 1 / (1 + exp((-60 - V) / 5)), bm = 0.1 / (1 + exp((V + 35) / 5)) + 0.1 / (1 + exp((V - 50) / 200));
-    const hinf = gi.hinf;
-    let ah, bh, aj, bj;
-    if (V < -40) {
-      ah = 0.057 * exp(-(V + 80) / 6.8); bh = 2.7 * exp(0.079 * V) + 3.1e5 * exp(0.3485 * V);
-      aj = (-2.5428e4 * exp(0.2444 * V) - 6.948e-6 * exp(-0.04391 * V)) * (V + 37.78) / (1 + exp(0.311 * (V + 79.23)));
-      bj = 0.02424 * exp(-0.01052 * V) / (1 + exp(-0.1378 * (V + 40.14)));
-    } else {
-      ah = 0; bh = 0.77 / (0.13 * (1 + exp(-(V + 10.66) / 11.1)));
-      aj = 0; bj = 0.6 * exp(0.057 * V) / (1 + exp(-0.1 * (V + 32)));
-    }
-    c.m = minf + (c.m - minf) * exp(-dt / (am * bm));
-    c.h = hinf + (c.h - hinf) * exp(-dt * (ah + bh));
-    c.j = hinf + (c.j - hinf) * exp(-dt * (aj + bj));
-    const xr1inf = gi.xr1inf;
-    const txr1 = 450 / (1 + exp((-45 - V) / 10)) * 6 / (1 + exp((V + 30) / 11.5));
-    c.xr1 = xr1inf + (c.xr1 - xr1inf) * exp(-dt / txr1);
-    const xr2inf = gi.xr2inf;
-    const txr2 = 3 / (1 + exp((-60 - V) / 20)) * 1.12 / (1 + exp((V - 60) / 20));
-    c.xr2 = xr2inf + (c.xr2 - xr2inf) * exp(-dt / txr2);
-    const xsinf = gi.xsinf;
-    const txs = 1100 / sqrt(1 + exp((-10 - V) / 6)) * 1 / (1 + exp((V - 60) / 20));
-    c.xs = xsinf + (c.xs - xsinf) * exp(-dt / txs);
-    const rinf = gi.rinf, tr = 9.5 * exp(-((V + 40) ** 2) / 1800) + 0.8;
-    c.r = rinf + (c.r - rinf) * exp(-dt / tr);
-    const sinf = gi.sinf;
-    const ts = P.epi ? 85 * exp(-((V + 45) ** 2) / 320) + 5 / (1 + exp((V - 20) / 5)) + 3 : 1000 * exp(-((V + 67) ** 2) / 1000) + 8;
-    c.s = sinf + (c.s - sinf) * exp(-dt / ts);
-    const dinf = gi.dinf;
-    const td = (1.4 / (1 + exp((-35 - V) / 13)) + 0.25) * (1.4 / (1 + exp((V + 5) / 5))) + 1 / (1 + exp((50 - V) / 20));
-    c.d = dinf + (c.d - dinf) * exp(-dt / td);
-    const finf = gi.finf;
-    const tf = 1125 * exp(-((V + 27) ** 2) / 240) + 80 + 165 / (1 + exp((25 - V) / 10));
-    c.f = finf + (c.f - finf) * exp(-dt / tf);
+    const gi = tnnpInf(V, P.epi), t = tnnpTau(V, P.epi); // both write the shared scratch GI; gi === t
+    c.m = gi.minf + (c.m - gi.minf) * exp(-dt / t.tm);
+    c.h = gi.hinf + (c.h - gi.hinf) * exp(-dt * t.kh);
+    c.j = gi.hinf + (c.j - gi.hinf) * exp(-dt * t.kj);
+    c.xr1 = gi.xr1inf + (c.xr1 - gi.xr1inf) * exp(-dt / t.txr1);
+    c.xr2 = gi.xr2inf + (c.xr2 - gi.xr2inf) * exp(-dt / t.txr2);
+    c.xs = gi.xsinf + (c.xs - gi.xsinf) * exp(-dt / t.txs);
+    c.r = gi.rinf + (c.r - gi.rinf) * exp(-dt / t.tr);
+    c.s = gi.sinf + (c.s - gi.sinf) * exp(-dt / t.ts);
+    c.d = gi.dinf + (c.d - gi.dinf) * exp(-dt / t.td);
+    c.f = gi.finf + (c.f - gi.finf) * exp(-dt / t.tf);
     const fCainf = (1 / (1 + (Cai / 0.000325) ** 8) + 0.1 / (1 + exp((Cai - 0.0005) / 0.0001)) +
       0.2 / (1 + exp((Cai - 0.00075) / 0.0008)) + 0.23) / 1.46;
     const fCan = fCainf + (c.fCa - fCainf) * exp(-dt / C.taufca);
@@ -445,7 +421,7 @@ function MODELS_FACTORY() {
       GKsEndo: W.GKsEndo * f('Ks'), GKsM: W.GKsM * f('Ks'), GKsEpi: W.GKsEpi * f('Ks') }, opts);
   }
 
-  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpStep, tnnpInf, tnnpTau, tnnpParams, TNNP_INIT, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
+  return { hh, hhStep, hhClamp, CLAMP_STEPS, cortical, tnnp, tnnpStep, tnnpInf, tnnpTau, tnnpParams, TNNP_INIT, TNNP_REF, tnnpCable, tnnpWall, tnnpWallScaled, wallRegions, WALL_REF };
 }
 const MODELS = MODELS_FACTORY();
 

@@ -8,8 +8,7 @@
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
-  const CUR_COL = { INa: 'c-na', ICaL: 'c-ca', IT: 'c-ca', Ito: 'c-to', IKr: 'c-kr', IKs: 'c-ks', IM: 'c-ks',
-    IK1: 'c-k1', IK: 'c-k1', IKd: 'c-k1', IL: 'c-lk', INaCa: 'c-ncx', INaK: 'c-pump' };
+  const CUR_COL = CORE.CH_COL;
   const CUR_NAME = { INa: 'Na⁺', ICaL: 'Ca²⁺ L-type', IT: 'Ca²⁺ T-type', Ito: 'transient out', IKr: 'K⁺ rapid', IKs: 'K⁺ slow',
     IM: 'K⁺ M-type', IK1: 'K⁺ inward rect.', IK: 'K⁺', IKd: 'K⁺ delayed rect.', IL: 'leak', INaCa: 'Na⁺/Ca²⁺ exch.', INaK: 'Na⁺/K⁺ pump' };
 
@@ -432,7 +431,7 @@
     setBusy(true, 'Recording the target…');
     const Tn = await simulate(L, L.target); if (g !== gen) return;
     T = Tn;
-    let span = 0; for (const x of T.V) span = Math.max(span, x); span -= Math.min(...T.V);
+    let hi = -Infinity, lo = Infinity; for (const x of T.V) { hi = Math.max(hi, x); lo = Math.min(lo, x); } const span = hi - lo;
     Tdisp = noisy(T.V, span * 0.004 + (L.noise ?? 0.15));
     curScale = {};
     if (!L.async && L.panel !== 'clamp') { const R0 = L.sim(L.start); for (const n of L.currents) { let mx = 0; for (const x of R0.I[n]) mx = Math.max(mx, Math.abs(x)); curScale[n] = Math.max(mx * 1.15, 1e-3); } }
