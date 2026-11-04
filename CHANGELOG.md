@@ -6,6 +6,10 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-11-04
+### Changed
+- Lens: the "i" explanations are now popovers anchored under their button (no layout jump); they close on a second click, a click elsewhere, Esc, or opening the other one.
+
 ## [0.7.7] - 2026-11-04
 ### Added
 - Version number shown next to the author credit at the top of the page.
