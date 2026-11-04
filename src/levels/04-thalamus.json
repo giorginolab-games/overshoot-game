@@ -1,7 +1,7 @@
 {
   "id": "thalamus",
   "name": "Thalamic neuron",
-  "who": "Thalamocortical / LTS cell",
+  "who": "Thalamocortical / LTS cell · ferret model",
   "ref": "Pospischil et al. 2008; Destexhe 1996",
   "brief": "Hyperpolarise this neuron for 300 ms and let go. It answers with a rebound burst of spikes riding on a slow calcium spike. This is the mechanism behind sleep spindles and absence seizures.",
   "protocol": "−0.5 µA/cm² step, 100–400 ms, then release",
@@ -14,7 +14,7 @@
     {
       "k": "gNa",
       "name": "Voltage-gated Na⁺",
-      "gene": "Nav1.1 / Nav1.6 · SCN1A / SCN8A",
+      "gene": "Nav1.1 / Nav1.6 · SCN1A / SCN8A (human refs)",
       "genes": ["SCN1A", "SCN8A"],
       "cur": "INa",
       "unit": "mS/cm²",
@@ -35,7 +35,7 @@
     {
       "k": "gT",
       "name": "T-type Ca²⁺",
-      "gene": "Cav3.1 · CACNA1G",
+      "gene": "Cav3.1 · CACNA1G (human ref)",
       "genes": ["CACNA1G"],
       "cur": "IT",
       "unit": "mS/cm²",

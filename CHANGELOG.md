@@ -6,6 +6,10 @@ The version lives in `package.json` (single source of truth) and is shown in the
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-04
+### Changed
+- Thalamic level: labelled as a ferret model (after Destexhe et al. 1996); its channel links remain the reviewed human UniProt entries and are marked as human references, since UniProt has no reviewed ferret entries.
+
 ## [0.7.3] - 2026-11-04
 ### Added
 - Rat pyramidal-neuron level: channel gene names link to the reviewed rat UniProt entries (P04775, O88420, P15387, O88943, O88944) instead of the human ones. Channel JSON accepts a `uniprot` list of `{text, id}` for non-human species.
