@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 The version lives in `package.json` (single source of truth) and is shown in the page footer.
 
 ## [Unreleased]
+
+## [0.7.2] - 2026-11-04
 ### Changed
 - Lens: ion buckets moved under the channels that carry each ion (Na⁺ under Nav, Ca²⁺ under Cav, K⁺ under the K⁺ channels), with a wrapped grid on narrow screens; the vertical gate curves are labelled closed (left) and open (right), inactivated and available for the dashed curve.
 
