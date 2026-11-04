@@ -55,7 +55,8 @@
   }
 
   // gene symbols -> UniProt (reviewed human entry) and Ensembl (gene search) links
-  const geneHtml = t => (t.genes || []).reduce((h, g) => h.replace(g, `<a href="https://www.uniprot.org/uniprotkb?query=gene_exact:${g}+AND+organism_id:9606+AND+reviewed:true" target="_blank" rel="noopener" title="${g} on UniProt">${g}</a> <a class="ens" href="https://www.ensembl.org/Multi/Search/Results?q=${g};species=Homo_sapiens;site=ensembl" target="_blank" rel="noopener" title="${g} on Ensembl">Ensembl</a>`), t.gene);
+  const uniLink = (id, txt) => `<a href="https://www.uniprot.org/uniprotkb/${id}/entry" target="_blank" rel="noopener" title="${txt} on UniProt">${txt}</a>`;
+  const geneHtml = t => t.uniprot ? t.gene.replace(t.uniprot.text, uniLink(t.uniprot.id, t.uniprot.text)) : (t.genes || []).reduce((h, g) => h.replace(g, `<a href="https://www.uniprot.org/uniprotkb?query=gene_exact:${g}+AND+organism_id:9606+AND+reviewed:true" target="_blank" rel="noopener" title="${g} on UniProt">${g}</a> <a class="ens" href="https://www.ensembl.org/Multi/Search/Results?q=${g};species=Homo_sapiens;site=ensembl" target="_blank" rel="noopener" title="${g} on Ensembl">Ensembl</a>`), t.gene);
   // ---- level strip ----
   function renderLevels() {
     const el = $('levels'); el.innerHTML = '';
