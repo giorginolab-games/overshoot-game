@@ -549,11 +549,13 @@ const LENS_UI = (() => {
   }
   function init() {
     $('lensClose').onclick = closeLens;
-    $('lensInfo').onclick = () => {
-      const b = $('lensInfo'), on = b.getAttribute('aria-expanded') !== 'true';
-      b.setAttribute('aria-expanded', on);
-      document.querySelectorAll('.info-note').forEach(n => { n.hidden = !on; });
-    };
+    document.querySelectorAll('.ibtn').forEach(b => {
+      b.onclick = () => {
+        const n = $(b.dataset.info), on = n.hidden;
+        n.hidden = !on;
+        b.setAttribute('aria-expanded', on);
+      };
+    });
     $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
     document.addEventListener('keydown', e => {
       if (!open) return;

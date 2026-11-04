@@ -217,6 +217,8 @@ canvas { display: block; width: 100%; }
 .lens-scale { font: 12.5px var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 .lens-scale b { font-weight: 600; color: var(--accent); }
 .lens h3 { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.ibtn { border: 1px solid var(--line); background: var(--panel); color: var(--accent); width: 22px; height: 22px; border-radius: 50%; font: italic 700 13px Georgia, serif; line-height: 1; cursor: pointer; vertical-align: middle; margin-left: 4px; padding: 0; }
+.ibtn:hover, .ibtn[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); border-color: var(--accent); }
 .lens .note[hidden] { display: none; }
 .lens .note { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 80ch; }
 @media (prefers-reduced-motion: reduce) { .toast, .meter .fill { transition: none; } .busy { animation: none; } }
@@ -290,10 +292,7 @@ canvas { display: block; width: 100%; }
     <div class="lens-head">
       <div><div class="eyebrow">Under the lens · your cell, slow motion</div><h2 id="lensTitle">Membrane</h2>
         <p>Ion flow at its true rate, slowed down. Each dot stands for a fixed number of ions, so the dots that cross add up to the real number of ions moved (|I| ÷ ze). The pore opens with the channel's open probability (Po).</p></div>
-      <div style="display:flex;gap:8px;flex:none">
-        <button class="xbtn" id="lensInfo" type="button" aria-label="Explain the plots" aria-expanded="false" title="Explain the plots" style="font:italic 700 17px Georgia,serif">i</button>
-        <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
-      </div>
+      <button class="xbtn" id="lensClose" type="button" aria-label="Close the lens">×</button>
     </div>
     <div class="lens-ctrl">
       <div class="tbtns" role="group" aria-label="Playback">
@@ -319,8 +318,9 @@ canvas { display: block; width: 100%; }
       <span><i class="dot" style="background:var(--ion-na)"></i>Na⁺</span><span><i class="dot" style="background:var(--ion-k)"></i>K⁺</span>
       <span><i class="dot" style="background:var(--ion-ca)"></i>Ca²⁺</span><span><i class="dot" style="background:var(--ion-lk)"></i>leak (mixed)</span>
       <span>Under each channel: ions per second, current (<span id="lensUnit">pA/pF</span>) and open probability. Rotating discs are transporters.</span>
+      <button class="ibtn" type="button" data-info="lkNote" aria-expanded="false" aria-label="Explain this plot" title="Explain this plot">i</button>
     </div>
-    <h3 id="lgHead">Gates and thresholds</h3>
+    <h3 id="lgHead">Gates and thresholds <button class="ibtn" type="button" data-info="lgNote" aria-expanded="false" aria-label="Explain this plot" title="Explain this plot">i</button></h3>
     <p class="note info-note" id="lgNote" hidden>Each plot shows how a channel's gates respond to voltage, with V on the horizontal axis and the fraction of gates open (solid line, activation) or still available (dashed line, inactivation) on the vertical axis. The triangle (▲) marks the half-activation voltage, the diamond (◆) the half-inactivation voltage; each fills in once V has passed it, and the shaded region is above the activation threshold. The vertical line is the membrane potential now. The <b>ring</b> is where the gates are heading at this voltage; the <b>filled marker</b> is where they actually are. The accent-coloured gap between them is the delay, and the faint trail shows the path so far. Below each plot, the time constant τ (log scale) shows how slowly the gates follow at every voltage: a gap closes fast where τ is small and slowly where it is large.</p>
     <canvas id="lg" role="img" aria-label="Gate steady-state curves versus membrane potential, with the present state of each gate"></canvas>
     <div class="lens-scale" id="lensScale"></div>
@@ -1660,11 +1660,13 @@ const LENS_UI = (() => {
   }
   function init() {
     $('lensClose').onclick = closeLens;
-    $('lensInfo').onclick = () => {
-      const b = $('lensInfo'), on = b.getAttribute('aria-expanded') !== 'true';
-      b.setAttribute('aria-expanded', on);
-      document.querySelectorAll('.info-note').forEach(n => { n.hidden = !on; });
-    };
+    document.querySelectorAll('.ibtn').forEach(b => {
+      b.onclick = () => {
+        const n = $(b.dataset.info), on = n.hidden;
+        n.hidden = !on;
+        b.setAttribute('aria-expanded', on);
+      };
+    });
     $('lens').addEventListener('click', e => { if (e.target === $('lens')) closeLens(); });
     document.addEventListener('keydown', e => {
       if (!open) return;
